@@ -15,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "SCOPE SLEDGEHAMMER // MVP Ticket Generator",
-  description: "A brutalist AI tool that slashes bloated product ideas into prioritized MVP tickets using the Gemini API.",
+  description:
+    "A brutalist AI tool that slashes bloated product ideas into prioritized MVP tickets using the Grok API.",
 };
 
 export default function RootLayout({
@@ -28,6 +29,12 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <link
+          rel="icon"
+          href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔨</text></svg>"
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <Script id="pendo-install" strategy="afterInteractive">
           {`(function(apiKey){
