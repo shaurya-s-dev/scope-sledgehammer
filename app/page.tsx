@@ -3,6 +3,12 @@ import { useState, useEffect, useRef } from "react";
 import { Zap, Target, HelpCircle, Terminal, RotateCcw, Copy, Check, AlertTriangle } from "lucide-react";
 import NovusDashboard from "@/components/NovusDashboard";
 
+declare global {
+  interface Window {
+    pendo?: { trackAgent: (eventType: string, metadata: object) => void };
+  }
+}
+
 const LOADING_MESSAGES = [
   "Shredding roadmaps...",
   "Firing stakeholders...",
@@ -279,6 +285,10 @@ export default function ScopeSledgehammer() {
   const brutalityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const conversationIdRef = useRef(crypto.randomUUID());
+  const lastPromptMessageIdRef = useRef("");
+  const isSuggestedPromptRef = useRef(false);
+
   const [telemetryLogs, setTelemetryLogs] = useState<string[]>([]);
   const [debris, setDebris] = useState<{ id: number; text: string; x: number; y: number }[]>([]);
 
@@ -335,6 +345,17 @@ export default function ScopeSledgehammer() {
     }
 
     logEvent(`SLEDGEHAMMER execution requested. Input size: ${inputValue.length} chars.`);
+
+    const promptMessageId = crypto.randomUUID();
+    lastPromptMessageIdRef.current = promptMessageId;
+    window.pendo?.trackAgent("prompt", {
+      agentId: "XBY568ZWSHglvzeocYCvsGPB_TU",
+      conversationId: conversationIdRef.current,
+      messageId: promptMessageId,
+      content: inputValue,
+      suggestedPrompt: isSuggestedPromptRef.current,
+    });
+    isSuggestedPromptRef.current = false;
 
     // Cancel any ongoing fetch before launching a new one
     if (abortControllerRef.current) {
@@ -406,7 +427,15 @@ export default function ScopeSledgehammer() {
           }));
           setTickets(mapped);
           setPhase("revealed");
-          
+
+          window.pendo?.trackAgent("agent_response", {
+            agentId: "XBY568ZWSHglvzeocYCvsGPB_TU",
+            conversationId: conversationIdRef.current,
+            messageId: crypto.randomUUID(),
+            content: JSON.stringify(data.tickets),
+            ...(data.stats?.mode === "live" ? { modelUsed: "grok-beta" } : {}),
+          });
+
           const modeStr = data.stats?.mode === "live" ? "LIVE completions" : "CACHE fallback mock";
           logEvent(`API request resolved. Generated ${data.tickets.length} tickets. [Mode: ${modeStr}]`);
         } else {
@@ -1046,6 +1075,12 @@ export default function ScopeSledgehammer() {
                 </p>
                 <button
                   onClick={() => {
+                    window.pendo?.trackAgent("user_reaction", {
+                      agentId: "XBY568ZWSHglvzeocYCvsGPB_TU",
+                      conversationId: conversationIdRef.current,
+                      messageId: lastPromptMessageIdRef.current,
+                      content: "retry",
+                    });
                     setError(null);
                     handleSledgehammer();
                   }}
@@ -1117,6 +1152,7 @@ export default function ScopeSledgehammer() {
                       setInputValue(
                         "A web3-enabled, AI-driven hyper-local dog walking mobile application featuring real-time video streaming of every walk, custom crypto wallet integrations for tipping, multi-layered loyalty tiers with NFT achievement badges, automated drone delivery for treats and supplies, a social feed with stories and reels for pet owners, integrated veterinary telemedicine, AR-powered dog park navigation, and a gamified leaderboard ranking walkers by neighborhood."
                       );
+                      isSuggestedPromptRef.current = true;
                     }}
                     style={{
                       fontFamily: "'JetBrains Mono', monospace",
