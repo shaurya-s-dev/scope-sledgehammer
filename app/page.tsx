@@ -285,7 +285,7 @@ export default function ScopeSledgehammer() {
   const [animatedReduction, setAnimatedReduction] = useState(0);
 
   const logEvent = (msg: string) => {
-    setTelemetryLogs(prev => [...prev, `[NOVUS_LOG]: ${msg}`]);
+    setTelemetryLogs(prev => [...prev, `[SYSTEM]: ${msg}`]);
   };
 
   // Automatically clear debris particles after 1 second
@@ -358,10 +358,7 @@ export default function ScopeSledgehammer() {
   };
 
   const handleDeployMVP = () => {
-    window.open(
-      "https://vercel.com/new/import?s=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fhello-world",
-      "_blank"
-    );
+    window.open("https://vercel.com/new", "_blank");
     logEvent("MVP deployment initiated via Vercel.");
   };
 
@@ -392,7 +389,7 @@ export default function ScopeSledgehammer() {
   }, [phase, msgIndex]);
 
   const handleSledgehammer = async () => {
-    if (phase !== "idle") {
+    if (phase === "shaking" || phase === "loading") {
       logEvent("Execution throttle active. Duplicate request blocked.");
       return; // block double clicks / overlapping executions
     }
@@ -712,6 +709,11 @@ export default function ScopeSledgehammer() {
           }
         }
 
+        @keyframes bgDrift {
+          0%   { background-position: 0% 0%, 100% 100%, 50% 100%, 0 0, 0 0; }
+          100% { background-position: 8% 12%, 90% 88%, 50% 92%, 0 0, 0 0; }
+        }
+
         .scope-quaking       { animation: quake 0.52s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
         .scope-card-in       { animation: riseIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
         .scope-blink         { animation: blink 1s step-end infinite; }
@@ -797,13 +799,14 @@ export default function ScopeSledgehammer() {
             pointerEvents: "none",
             zIndex: 0,
             backgroundImage: `
-              radial-gradient(circle at 20% 30%, rgba(34,197,94,0.12) 0%, transparent 45%),
-              radial-gradient(circle at 80% 70%, rgba(59,130,246,0.10) 0%, transparent 45%),
-              radial-gradient(circle at 40% 80%, rgba(168,85,247,0.08) 0%, transparent 45%),
-              linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
+              radial-gradient(circle at 20% 30%, rgba(0,255,255,0.16) 0%, transparent 50%),
+              radial-gradient(circle at 80% 70%, rgba(255,0,255,0.14) 0%, transparent 50%),
+              radial-gradient(circle at 50% 95%, rgba(255,45,45,0.07) 0%, transparent 55%),
+              linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)
             `,
-            backgroundSize: "100% 100%, 100% 100%, 100% 100%, 60px 60px, 60px 60px",
+            backgroundSize: "140% 140%, 140% 140%, 100% 100%, 60px 60px, 60px 60px",
+            animation: "bgDrift 22s ease-in-out infinite alternate",
           }}
         />
 
@@ -943,7 +946,7 @@ export default function ScopeSledgehammer() {
             pointerEvents: "none",
             zIndex: 1,
             background:
-              "radial-gradient(ellipse 60% 50% at 15% 65%, rgba(0,255,255,0.035) 0%, transparent 60%), radial-gradient(ellipse 55% 45% at 85% 20%, rgba(255,0,255,0.035) 0%, transparent 60%)",
+              "radial-gradient(ellipse 60% 50% at 15% 65%, rgba(0,255,255,0.10) 0%, transparent 60%), radial-gradient(ellipse 55% 45% at 85% 20%, rgba(255,0,255,0.10) 0%, transparent 60%)",
           }}
         />
         {/* Noise dots */}
@@ -1445,13 +1448,13 @@ export default function ScopeSledgehammer() {
                     fontSize: "clamp(1.1rem, 3.5vw, 1.5rem)",
                     letterSpacing: "0.16em",
                     textTransform: "uppercase",
-                    color: isInputEmpty ? "#52525B" : "#000",
-                    border: "none",
+                    color: isInputEmpty ? "#71717A" : "#000",
+                    border: isInputEmpty ? "1px solid rgba(255,255,255,0.12)" : "none",
                     cursor: isInputEmpty ? "not-allowed" : "pointer",
                     outline: "none",
                     padding: "22px 40px",
                     background: isInputEmpty
-                      ? "rgba(255,255,255,0.05)"
+                      ? "rgba(255,255,255,0.08)"
                       : brutalityLevel === "gentle"
                       ? "linear-gradient(135deg, #00FFFF 0%, #00CCDD 100%)"
                       : brutalityLevel === "ruthless"
@@ -1461,7 +1464,7 @@ export default function ScopeSledgehammer() {
                     transform: btnTranslate,
                     transition: "box-shadow 0.15s, transform 0.1s, background 0.2s, color 0.2s",
                     fontFamily: "'Space Grotesk', system-ui, sans-serif",
-                    opacity: isInputEmpty ? 0.45 : 1,
+                    opacity: isInputEmpty ? 0.65 : 1,
                   }}
                 >
                   {!isInputEmpty && <div className="scope-shimmer" />}
@@ -1490,7 +1493,7 @@ export default function ScopeSledgehammer() {
                     fontSize: 10,
                     letterSpacing: "0.22em",
                     textTransform: "uppercase",
-                    color: "#27272A",
+                    color: "#52525B",
                   }}
                 >
                   {"// paste your product idea above"}
@@ -1503,7 +1506,7 @@ export default function ScopeSledgehammer() {
                     fontSize: 10,
                     letterSpacing: "0.28em",
                     textTransform: "uppercase",
-                    color: "#27272A",
+                    color: "#52525B",
                   }}
                 >
                   ⚠ warning: may cause stakeholder distress
@@ -1646,7 +1649,7 @@ export default function ScopeSledgehammer() {
                     textTransform: "uppercase",
                   }}
                 >
-                  Calling Gemini API — brutality: {brutalityLevel}
+                  Calling Grok API — brutality: {brutalityLevel}
                 </span>
               </div>
             </div>
@@ -2004,7 +2007,7 @@ export default function ScopeSledgehammer() {
                   fontSize: 10,
                   letterSpacing: "0.32em",
                   textTransform: "uppercase",
-                  color: "#27272A",
+                  color: "#52525B",
                   marginTop: 36,
                   transition: "opacity 0.5s ease",
                   opacity: ticketsStale ? 0.3 : 1,
@@ -2092,19 +2095,19 @@ export default function ScopeSledgehammer() {
               gap: 8,
             }}
           >
-            <div style={{ height: 1, width: 24, background: "linear-gradient(90deg, transparent, #27272A)" }} />
+            <div style={{ height: 1, width: 24, background: "linear-gradient(90deg, transparent, #52525B)" }} />
             <span
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 9,
                 letterSpacing: "0.22em",
                 textTransform: "uppercase",
-                color: "#27272A",
+                color: "#52525B",
               }}
             >
               Engineered for the &lsquo;Everyone Ships Now&rsquo; Hackathon
             </span>
-            <div style={{ height: 1, width: 24, background: "linear-gradient(90deg, #27272A, transparent)" }} />
+            <div style={{ height: 1, width: 24, background: "linear-gradient(90deg, #52525B, transparent)" }} />
           </div>
           <span
             style={{
