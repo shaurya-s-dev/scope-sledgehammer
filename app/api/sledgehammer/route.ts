@@ -25,6 +25,18 @@ function getFallbackTickets(prompt: string, brutality: string) {
         scope: "Minimal calendar interface allowing local date scheduling controls.",
         whyCut: "Google Calendar syncing and automatic AI reminder notifications are slashed.",
         framework: "Jobs-to-be-Done"
+      },
+      {
+        title: `${name} - BASIC NOTIFICATION TRIGGER`,
+        scope: "Single rule-based email alert triggered on one key status change.",
+        whyCut: "Multi-channel push/SMS/Slack notification systems are deferred until users prove they actually want alerts.",
+        framework: "Jobs-to-be-Done"
+      },
+      {
+        title: `${name} - SIMPLE USER PROFILE`,
+        scope: "Minimal account page showing name, email, and one editable preference field.",
+        whyCut: "Granular permission tiers, avatar uploads, and social profile linking add no validation value pre-launch.",
+        framework: "Jobs-to-be-Done"
       }
     ];
   } else if (brutality === 'ruthless') {
@@ -94,7 +106,7 @@ export async function POST(request: Request) {
 
   let frameworkInstruction = "";
   if (brutalityLevel === 'gentle') {
-    frameworkInstruction = "Apply a light Jobs-to-be-Done (JTBD) framework. Keep essential quality-of-life additions but organize them tightly. Return exactly 3 tickets.";
+    frameworkInstruction = "Apply a light Jobs-to-be-Done (JTBD) framework. Keep essential quality-of-life additions but organize them tightly. Return exactly 5 tickets.";
   } else if (brutalityLevel === 'ruthless') {
     frameworkInstruction = "Apply a strict MoSCoW framework. Isolate ONLY the absolute 'Must-Have' core features. Cut the 'Should-Haves' completely. Return exactly 3 tickets.";
   } else {
@@ -122,7 +134,7 @@ Return ONLY a valid JSON object. Do not wrap it in markdown code blocks (\`\`\`j
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "grok-beta",
+        model: "grok-4.3",
         messages: [
           { role: "system", content: systemInstruction },
           { role: "user", content: promptText }

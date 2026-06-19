@@ -84,14 +84,14 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
   const logMessages: string[] = [];
 
   if (phase === "loading") {
-    logMessages.push("[NOVUS_LOG]: Repository mapping initialized...");
-    logMessages.push("[NOVUS_LOG]: Isolating high-risk structural bottlenecks...");
-    logMessages.push("[NOVUS_LOG]: Brutality level set to " + brutalityLevel.toUpperCase());
+    logMessages.push("[SYSTEM]: Repository mapping initialized...");
+    logMessages.push("[SYSTEM]: Isolating high-risk structural bottlenecks...");
+    logMessages.push("[SYSTEM]: Brutality level set to " + brutalityLevel.toUpperCase());
   }
   if (phase === "revealed") {
-    logMessages.push("[NOVUS_LOG]: " + ticketCount + " ticket(s) generated.");
-    logMessages.push("[NOVUS_LOG]: MVP value architecture locked.");
-    logMessages.push("[NOVUS_LOG]: Estimated time-to-ship saved: " + timeSaved + " weeks.");
+    logMessages.push("[SYSTEM]: " + ticketCount + " ticket(s) generated.");
+    logMessages.push("[SYSTEM]: MVP value architecture locked.");
+    logMessages.push("[SYSTEM]: Estimated time-to-ship saved: " + timeSaved + " weeks.");
   }
 
   // Prepend static messages and append dynamic event logs
@@ -101,7 +101,7 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
     <div style={{ marginTop: 40, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(10px)", padding: "20px" }}>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "#3F3F46", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
         <Activity size={12} color="#00FFFF" />
-        Novus Telemetry Stream
+        Sledgehammer Impact Stats
         <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00FFFF", boxShadow: "0 0 8px #00FFFF", animation: "blink 1.5s ease-in-out infinite" }} />
       </div>
 
