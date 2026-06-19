@@ -239,6 +239,7 @@ function TicketCard({
               Why
             </div>
             <p
+              title={ticket.why}
               style={{
                 fontSize: 13,
                 color: "#71717A",
@@ -281,6 +282,7 @@ export default function ScopeSledgehammer() {
 
   const [telemetryLogs, setTelemetryLogs] = useState<string[]>([]);
   const [debris, setDebris] = useState<{ id: number; text: string; x: number; y: number }[]>([]);
+  const [animatedReduction, setAnimatedReduction] = useState(0);
 
   const logEvent = (msg: string) => {
     setTelemetryLogs(prev => [...prev, `[NOVUS_LOG]: ${msg}`]);
@@ -294,6 +296,74 @@ export default function ScopeSledgehammer() {
     }, 1000);
     return () => clearTimeout(timer);
   }, [debris]);
+
+  // Scope reduction counter animation
+  useEffect(() => {
+    if (phase === "revealed" && tickets.length > 0) {
+      const targetPercent = brutalityLevel === "nuclear"
+        ? Math.min(99, 95 + (inputValue.length % 5))
+        : brutalityLevel === "ruthless"
+        ? Math.min(94, 80 + (inputValue.length % 15))
+        : Math.min(79, 50 + (inputValue.length % 30));
+
+      let start = 0;
+      const duration = 600; // ms
+      const intervalTime = 20; // ms
+      const totalSteps = duration / intervalTime;
+      const increment = targetPercent / totalSteps;
+
+      const timer = setInterval(() => {
+        start += increment;
+        if (start >= targetPercent) {
+          setAnimatedReduction(targetPercent);
+          clearInterval(timer);
+        } else {
+          setAnimatedReduction(Math.round(start));
+        }
+      }, intervalTime);
+
+      return () => clearInterval(timer);
+    }
+  }, [phase, tickets, brutalityLevel, inputValue.length]);
+
+  const handleExportCSV = () => {
+    if (tickets.length === 0) return;
+    const escapeCSV = (text: string) => {
+      const escaped = text.replace(/"/g, '""');
+      return `"${escaped}"`;
+    };
+    const header = ["ID", "Title", "Scope", "Why"];
+    const rows = tickets.map((t) => [
+      t.id,
+      escapeCSV(t.title),
+      escapeCSV(t.scope),
+      escapeCSV(t.why),
+    ]);
+    const csvContent = [
+      header.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "sledgehammer-tickets.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    logEvent("Tickets exported to CSV format.");
+  };
+
+  const handleDeployMVP = () => {
+    window.open(
+      "https://vercel.com/new/import?s=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fhello-world",
+      "_blank"
+    );
+    logEvent("MVP deployment initiated via Vercel.");
+  };
 
   // Clean up all active timers and requests on unmount to prevent leaks
   useEffect(() => {
@@ -346,6 +416,7 @@ export default function ScopeSledgehammer() {
     setTicketsStale(false);
     setFlash(true);
     setPhase("shaking");
+    setAnimatedReduction(0);
 
     // Generate 5-8 debris items with random texts and positions around center of screen
     const texts = [
@@ -445,6 +516,7 @@ export default function ScopeSledgehammer() {
     setTickets([]);
     setError(null);
     setTicketsStale(false);
+    setAnimatedReduction(0);
     logEvent("Repository mapping reset. Cache cleared.");
   };
 
@@ -456,6 +528,7 @@ export default function ScopeSledgehammer() {
     brutalityTimeoutRef.current = setTimeout(() => setBrutalityFlash(false), 350);
     if (phase === "revealed" && tickets.length > 0) {
       setTicketsStale(true);
+      setAnimatedReduction(0);
     }
     logEvent(`Brutality set to ${level.toUpperCase()}. Purging all secondary code paths.`);
   };
@@ -1379,7 +1452,11 @@ export default function ScopeSledgehammer() {
                     padding: "22px 40px",
                     background: isInputEmpty
                       ? "rgba(255,255,255,0.05)"
-                      : "linear-gradient(135deg, #00FFFF 0%, #00CCDD 100%)",
+                      : brutalityLevel === "gentle"
+                      ? "linear-gradient(135deg, #00FFFF 0%, #00CCDD 100%)"
+                      : brutalityLevel === "ruthless"
+                      ? "linear-gradient(135deg, #FF00FF 0%, #CC00CC 100%)"
+                      : "linear-gradient(135deg, #FF2D2D 0%, #CC0000 100%)",
                     boxShadow: btnShadow,
                     transform: btnTranslate,
                     transition: "box-shadow 0.15s, transform 0.1s, background 0.2s, color 0.2s",
@@ -1773,40 +1850,122 @@ export default function ScopeSledgehammer() {
                       fontSize: 20,
                       color: "#fff",
                       letterSpacing: "-0.02em",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
                     }}
                   >
-                    {tickets.length} ticket{tickets.length !== 1 ? "s" : ""}. Non-negotiable.
+                    <span>
+                      {tickets.length} ticket{tickets.length !== 1 ? "s" : ""}. Non-negotiable.
+                    </span>
+                    {animatedReduction > 0 && (
+                      <span
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "#00FFFF",
+                          textShadow: "0 0 8px rgba(0, 255, 255, 0.4)",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        [Scope reduced by {animatedReduction}%]
+                      </span>
+                    )}
                   </h2>
                 </div>
-                <button
-                  onClick={handleReset}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontFamily: "'JetBrains Mono', 'Courier New', monospace",
-                    fontSize: 10,
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase",
-                    color: "#52525B",
-                    background: "none",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    transition: "all 0.18s",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.18)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#52525B";
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
-                  }}
-                >
-                  <RotateCcw size={11} />
-                  Reset
-                </button>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  {/* Deploy MVP Button */}
+                  <button
+                    onClick={handleDeployMVP}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      color: "#00FFFF",
+                      background: "none",
+                      border: "1px solid rgba(0,255,255,0.4)",
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                      transition: "all 0.18s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,255,0.08)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#00FFFF";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "none";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,255,0.4)";
+                    }}
+                  >
+                    Deploy MVP
+                  </button>
+
+                  {/* Export CSV Button */}
+                  <button
+                    onClick={handleExportCSV}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      color: "#52525B",
+                      background: "none",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                      transition: "all 0.18s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.18)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "#52525B";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
+                    }}
+                  >
+                    Export .csv
+                  </button>
+
+                  {/* Reset Button */}
+                  <button
+                    onClick={handleReset}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      color: "#52525B",
+                      background: "none",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                      transition: "all 0.18s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.18)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "#52525B";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
+                    }}
+                  >
+                    <RotateCcw size={11} />
+                    Reset
+                  </button>
+                </div>
               </div>
 
               {/* Ticket cards — fade when stale */}
