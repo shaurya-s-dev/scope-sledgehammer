@@ -3,6 +3,14 @@ import { useState, useEffect, useRef } from "react";
 import { Zap, Target, HelpCircle, Terminal, RotateCcw, Copy, Check, AlertTriangle } from "lucide-react";
 import NovusDashboard from "@/components/NovusDashboard";
 
+declare global {
+  interface Window {
+    pendo?: {
+      track: (name: string, props?: Record<string, string | number | boolean>) => void;
+    };
+  }
+}
+
 const LOADING_MESSAGES = [
   "Shredding roadmaps...",
   "Firing stakeholders...",
@@ -336,6 +344,13 @@ export default function ScopeSledgehammer() {
 
     logEvent(`SLEDGEHAMMER execution requested. Input size: ${inputValue.length} chars.`);
 
+    window.pendo?.track("scope_submitted", {
+      input_length: inputValue.length,
+      brutality_level: brutalityLevel,
+      is_re_sledgehammer: tickets.length > 0,
+      input_word_count: inputValue.trim().split(/\s+/).length,
+    });
+
     // Cancel any ongoing fetch before launching a new one
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -409,6 +424,14 @@ export default function ScopeSledgehammer() {
           
           const modeStr = data.stats?.mode === "live" ? "LIVE completions" : "CACHE fallback mock";
           logEvent(`API request resolved. Generated ${data.tickets.length} tickets. [Mode: ${modeStr}]`);
+
+          window.pendo?.track("tickets_generated", {
+            ticket_count: mapped.length,
+            brutality_level: brutalityLevel,
+            api_mode: data.stats?.mode === "live" ? "live" : "mock",
+            input_length: inputValue.length,
+            ticket_priorities: mapped.map((t: Ticket) => t.priority).join(","),
+          });
         } else {
           throw new Error("Malformed data format received.");
         }
@@ -419,6 +442,13 @@ export default function ScopeSledgehammer() {
         }
         const errMsg = err instanceof Error ? err.message : "Something went wrong.";
         logEvent(`Critical failure: ${errMsg}`);
+
+        window.pendo?.track("ticket_generation_failed", {
+          error_message: errMsg.substring(0, 100),
+          brutality_level: brutalityLevel,
+          input_length: inputValue.length,
+        });
+
         setError(errMsg);
         setPhase("idle");
       }
@@ -426,6 +456,13 @@ export default function ScopeSledgehammer() {
   };
 
   const handleReset = () => {
+    window.pendo?.track("session_reset", {
+      previous_phase: phase,
+      had_tickets: tickets.length > 0,
+      ticket_count: tickets.length,
+      brutality_level: brutalityLevel,
+    });
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -450,6 +487,15 @@ export default function ScopeSledgehammer() {
 
   const handleBrutalityChange = (level: BrutalityLevel) => {
     if (level === brutalityLevel) return;
+
+    window.pendo?.track("brutality_level_changed", {
+      previous_level: brutalityLevel,
+      new_level: level,
+      phase: phase,
+      had_existing_results: tickets.length > 0,
+      tickets_stale: phase === "revealed" && tickets.length > 0,
+    });
+
     setBrutalityLevel(level);
     setBrutalityFlash(true);
     if (brutalityTimeoutRef.current) clearTimeout(brutalityTimeoutRef.current);
@@ -470,6 +516,15 @@ export default function ScopeSledgehammer() {
     if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
     copiedTimeoutRef.current = setTimeout(() => setCopied(null), 1500);
     logEvent(`Ticket ${id} copied to system clipboard.`);
+
+    const ticket = tickets.find(t => t.id === id);
+    window.pendo?.track("ticket_copied", {
+      ticket_id: id,
+      ticket_priority: ticket?.priority ?? "unknown",
+      ticket_title: (ticket?.title ?? "").substring(0, 100),
+      brutality_level: brutalityLevel,
+      total_tickets_shown: tickets.length,
+    });
   };
 
   const isInputEmpty = inputValue.trim().length === 0;
@@ -1114,6 +1169,10 @@ export default function ScopeSledgehammer() {
                   </label>
                   <button
                     onClick={() => {
+                      window.pendo?.track("preset_idea_loaded", {
+                        had_existing_input: inputValue.trim().length > 0,
+                        existing_input_length: inputValue.length,
+                      });
                       setInputValue(
                         "A web3-enabled, AI-driven hyper-local dog walking mobile application featuring real-time video streaming of every walk, custom crypto wallet integrations for tipping, multi-layered loyalty tiers with NFT achievement badges, automated drone delivery for treats and supplies, a social feed with stories and reels for pet owners, integrated veterinary telemedicine, AR-powered dog park navigation, and a gamified leaderboard ranking walkers by neighborhood."
                       );
