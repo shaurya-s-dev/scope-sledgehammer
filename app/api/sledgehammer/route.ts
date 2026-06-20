@@ -127,14 +127,14 @@ Each ticket object MUST have these exact keys:
 Return ONLY a valid JSON object. Do not wrap it in markdown code blocks (\`\`\`json) or add introductory text.`;
 
   try {
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "grok-4.3",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemInstruction },
           { role: "user", content: promptText }
@@ -147,13 +147,13 @@ Return ONLY a valid JSON object. Do not wrap it in markdown code blocks (\`\`\`j
     const data = await response.json();
 
     if (!response.ok) {
-      const errMsg = data.error?.message || response.statusText || "Grok API Error";
+      const errMsg = data.error?.message || response.statusText || "Groq API Error";
       throw new Error(errMsg);
     }
 
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
-      throw new Error("Empty response from Grok engine.");
+      throw new Error("Empty response from Groq engine.");
     }
 
     const parsedData = JSON.parse(content);
@@ -164,11 +164,11 @@ Return ONLY a valid JSON object. Do not wrap it in markdown code blocks (\`\`\`j
         stats: { mode: "live", brutality: brutalityLevel }
       });
     } else {
-      throw new Error("Malformed data format received from Grok.");
+      throw new Error("Malformed data format received from Groq.");
     }
 
   } catch (error: unknown) {
-    console.error("Grok Route Error, invoking fallback:", error);
+    console.error("Groq Route Error, invoking fallback:", error);
     const fallback = getFallbackTickets(promptText, brutalityLevel);
     return NextResponse.json({
       tickets: fallback,
