@@ -20,25 +20,33 @@ export default function NetworkBackground() {
     };
     window.addEventListener("resize", handleResize);
 
-    const particleCount = 45;
-    const particles: Array<{
+    const particleCount = 25; // 20-30 particles
+    interface Particle {
       x: number;
       y: number;
       vx: number;
       vy: number;
       radius: number;
-      color: string;
-    }> = [];
+      alpha: number;
+      decay: number;
+      isMagenta: boolean;
+    }
+    const particles: Particle[] = [];
+
+    const initParticle = (p: Partial<Particle> = {}, randomY = false): Particle => {
+      p.x = Math.random() * width;
+      p.y = randomY ? Math.random() * height : height + 10;
+      p.vx = (Math.random() - 0.5) * 0.25;
+      p.vy = -Math.random() * 0.4 - 0.15; // Slow upward drift
+      p.radius = Math.random() * 2 + 1.2;
+      p.alpha = randomY ? Math.random() * 0.8 + 0.2 : 1.0;
+      p.decay = Math.random() * 0.003 + 0.0015;
+      p.isMagenta = Math.random() > 0.5;
+      return p as Particle;
+    };
 
     for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        radius: Math.random() * 2 + 1,
-        color: Math.random() > 0.5 ? "rgba(0, 255, 255, 0.4)" : "rgba(255, 0, 255, 0.4)",
-      });
+      particles.push(initParticle({}, true));
     }
 
     const animate = () => {
@@ -46,33 +54,25 @@ export default function NetworkBackground() {
 
       const isTerminal = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "terminal";
 
-      // Draw connections
-      for (let i = 0; i < particleCount; i++) {
-        for (let j = i + 1; j < particleCount; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist < 120) {
-            const alpha = (1 - dist / 120) * 0.15;
-            ctx.strokeStyle = isTerminal ? `rgba(0, 255, 0, ${alpha})` : `rgba(0, 255, 255, ${alpha})`;
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.stroke();
-          }
-        }
-      }
-
-      // Draw particles
+      // Draw particles (No distance line connection logic)
       particles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
+        p.alpha -= p.decay;
 
-        if (p.x < 0 || p.x > width) p.vx *= -1;
-        if (p.y < 0 || p.y > height) p.vy *= -1;
+        // Reset particle when it fades out or drifts off-screen
+        if (p.alpha <= 0 || p.y < -10 || p.x < -10 || p.x > width + 10) {
+          initParticle(p, false);
+        }
 
-        ctx.fillStyle = isTerminal ? "rgba(0, 255, 0, 0.4)" : p.color;
+        const alphaVal = Math.max(0, Math.min(1, p.alpha));
+        if (isTerminal) {
+          ctx.fillStyle = `rgba(0, 255, 0, ${alphaVal * 0.45})`;
+        } else {
+          ctx.fillStyle = p.isMagenta
+            ? `rgba(255, 0, 255, ${alphaVal * 0.45})`
+            : `rgba(0, 255, 255, ${alphaVal * 0.45})`;
+        }
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fill();

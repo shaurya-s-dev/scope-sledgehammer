@@ -99,26 +99,28 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
 
   return (
     <div style={{ marginTop: 40, border: "var(--card-border-width, 1px) solid var(--glass-border)", background: "var(--glass-bg-panel)", backdropFilter: "var(--backdrop-blur)", padding: "20px" }}>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "#3F3F46", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-        <Activity size={12} color="#00FFFF" />
+      <div style={{ fontFamily: "var(--font-family-mono)", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "#ffffff", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+        <Activity size={12} style={{ stroke: "var(--system-accent)" }} />
         Sledgehammer Impact Stats
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00FFFF", boxShadow: "0 0 8px #00FFFF", animation: "blink 1.5s ease-in-out infinite" }} />
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--system-accent)", boxShadow: "0 0 8px var(--system-accent)", animation: "blink 1.5s ease-in-out infinite" }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
         {[
-          { label: "Scope Optimization Score", value: `${scopeScore}%`, icon: BarChart3, color: "#00FFFF" },
-          { label: "Features Vaporized", value: featuresVaporized.toString(), icon: Zap, color: "#FF00FF" },
-          { label: "Time-to-Ship Saved", value: `${timeSaved} Weeks`, icon: TrendingUp, color: "#00FFFF" },
-          { label: "Stakeholder Tears Saved", value: tearsSaved.toLocaleString(), icon: HeartCrack, color: "#FF00FF" },
+          { label: "Scope Optimization Score", value: `${scopeScore}%`, icon: BarChart3, color: "var(--system-accent)" },
+          { label: "Features Vaporized", value: featuresVaporized.toString(), icon: Zap, color: "var(--system-accent-magenta)" },
+          { label: "Time-to-Ship Saved", value: `${timeSaved} Weeks`, icon: TrendingUp, color: "var(--system-accent)" },
+          { label: "Stakeholder Tears Saved", value: tearsSaved.toLocaleString(), icon: HeartCrack, color: "var(--system-accent-magenta)" },
         ].map((metric, i) => (
-          <div key={i} style={{ background: "var(--glass-bg-card)", border: `var(--card-border-width, 1px) solid var(--glass-border)`, padding: "12px", transition: "all 0.2s" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-              <metric.icon size={12} color={metric.color} />
-              <span style={{ fontSize: 9, textTransform: "uppercase", color: "#52525B", letterSpacing: "0.1em" }}>{metric.label}</span>
-            </div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color: metric.color, textShadow: `0 0 12px ${metric.color}44` }}>
-              {metric.value}
+          <div key={i} className="sweep-border-card">
+            <div className="sweep-border-card-inner" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <metric.icon size={12} style={{ stroke: metric.color }} />
+                <span style={{ fontSize: 11, textTransform: "uppercase", color: "#888888", letterSpacing: "0.1em", fontWeight: 500 }}>{metric.label}</span>
+              </div>
+              <div style={{ fontFamily: "var(--font-family-mono)", fontSize: "3rem", fontWeight: 700, color: metric.color, textShadow: `0 0 12px rgba(0, 255, 255, 0.1)`, lineHeight: 1.1 }}>
+                {metric.value}
+              </div>
             </div>
           </div>
         ))}
@@ -137,7 +139,7 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
           }}
         >
           {combinedLogs.map((msg, i) => (
-            <div key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "#52525B", letterSpacing: "0.05em", marginBottom: 6, opacity: 0.8 }}>
+            <div key={i} style={{ fontFamily: "var(--font-family-mono)", fontSize: 10, color: "#888888", letterSpacing: "0.05em", marginBottom: 6 }}>
               {msg}
             </div>
           ))}
