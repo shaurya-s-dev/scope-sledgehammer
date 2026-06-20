@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Zap, Target, HelpCircle, Terminal, RotateCcw, Copy, Check, AlertTriangle } from "lucide-react";
 import NovusDashboard from "@/components/NovusDashboard";
 import NetworkBackground from "@/components/NetworkBackground";
@@ -369,11 +369,11 @@ function TicketWithDrillDown({
   onCopy: (id: string, text: string) => void;
   drillId: string | null;
   drillLoading: string | null;
-  drillData: Record<string, string>;
+  drillData: Record<string, any>;
   onDrillDown: (ticket: Ticket) => void;
 }) {
   const isDrillOpen = drillId === ticket.id;
-  const explanation = drillData[ticket.id] ? JSON.parse(drillData[ticket.id]) : null;
+  const explanation = drillData[ticket.id] || null;
   const isLoading = drillLoading === ticket.id;
 
   return (
@@ -492,7 +492,7 @@ export default function ScopeSledgehammer() {
 
 // ── Drill-down state ─────────────────────────────────────
   const [drillId,      setDrillId]      = useState<string | null>(null);
-  const [drillData,    setDrillData]    = useState<Record<string, string>>({});
+  const [drillData,    setDrillData]    = useState<Record<string, any>>({});
   const [drillLoading, setDrillLoading] = useState<string | null>(null);
   const [killCount, setKillCount] = useState(0);
   const [phase, setPhase] = useState<"idle" | "shaking" | "loading" | "revealed" | "compare_loading" | "compare_revealed">("idle");
@@ -543,11 +543,16 @@ export default function ScopeSledgehammer() {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("sledgehammer-theme") as "cyber" | "terminal" | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.setAttribute("data-theme", savedTheme);
-    } else {
+    try {
+      const savedTheme = localStorage.getItem("sledgehammer-theme") as "cyber" | "terminal" | null;
+      if (savedTheme) {
+        setTheme(savedTheme);
+        document.documentElement.setAttribute("data-theme", savedTheme);
+      } else {
+        document.documentElement.setAttribute("data-theme", "cyber");
+      }
+    } catch (e) {
+      console.error("Failed to read theme from localStorage:", e);
       document.documentElement.setAttribute("data-theme", "cyber");
     }
 
@@ -596,14 +601,18 @@ export default function ScopeSledgehammer() {
     const nextTheme = theme === "cyber" ? "terminal" : "cyber";
     setTheme(nextTheme);
     document.documentElement.setAttribute("data-theme", nextTheme);
-    localStorage.setItem("sledgehammer-theme", nextTheme);
+    try {
+      localStorage.setItem("sledgehammer-theme", nextTheme);
+    } catch (e) {
+      console.error("Failed to save theme to localStorage:", e);
+    }
     logEvent(`Theme swapped to ${nextTheme.toUpperCase()}.`);
     trackPendo("theme_changed", { theme: nextTheme });
   };
 
-  const logEvent = (msg: string) => {
+  const logEvent = useCallback((msg: string) => {
     setTelemetryLogs(prev => [...prev, `[SYSTEM]: ${msg}`]);
-  };
+  }, []);
 
   // Automatically clear debris particles after 1 second
   useEffect(() => {
@@ -759,7 +768,7 @@ export default function ScopeSledgehammer() {
       if (brutalityTimeoutRef.current) clearTimeout(brutalityTimeoutRef.current);
       if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
     };
-  }, []);
+  }, [logEvent]);
 
   // Cycle loading messages indefinitely while phase === "loading"
   useEffect(() => {
@@ -799,6 +808,10 @@ export default function ScopeSledgehammer() {
     setFlash(true);
     setPhase("shaking");
     setAnimatedReduction(0);
+    setDrillId(null);
+    setDrillData({});
+    setDrillLoading(null);
+    setCopied(null);
 
     // Generate 5-8 debris items with random texts and positions around center of screen
     const texts = [
@@ -834,7 +847,7 @@ export default function ScopeSledgehammer() {
       setPhase("loading");
       logEvent(`Initiating Groq completions API request. Brutality: ${brutalityLevel.toUpperCase()}`);
 
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       try {
         const response = await fetch("/api/sledgehammer", {
@@ -853,15 +866,17 @@ export default function ScopeSledgehammer() {
         if (data.tickets && Array.isArray(data.tickets)) {
           const priorityLabels = ["CRITICAL", "HIGH", "MEDIUM"];
           const accentColors = ["#00FFFF", "#FF00FF", "#00FFFF"];
-          const mapped: Ticket[] = data.tickets.map((t: { title?: string; scope?: string; whyCut?: string; why?: string; effort?: number }, i: number) => ({
-            id: `SLEDGE-${String(i + 1).padStart(3, "0")}`,
-            priority: priorityLabels[i] || "HIGH",
-            title: t.title ?? "Untitled Ticket",
-            scope: t.scope ?? "",
-            why: t.whyCut ?? t.why ?? "",
-            accent: accentColors[i % accentColors.length],
-            effort: t.effort,
-          }));
+          const mapped: Ticket[] = data.tickets
+            .filter((t: any) => t !== null && typeof t === "object")
+            .map((t: { title?: string; scope?: string; whyCut?: string; why?: string; effort?: number }, i: number) => ({
+              id: `SLEDGE-${String(i + 1).padStart(3, "0")}`,
+              priority: priorityLabels[i] || "HIGH",
+              title: t.title ?? "Untitled Ticket",
+              scope: t.scope ?? "",
+              why: t.whyCut ?? t.why ?? "",
+              accent: accentColors[i % accentColors.length],
+              effort: t.effort,
+            }));
           setTickets(mapped);
           setPhase("revealed");
           saveToHistory(inputValue, brutalityLevel, mapped);
@@ -876,7 +891,7 @@ export default function ScopeSledgehammer() {
         clearTimeout(timeoutId);
         if (err instanceof Error && err.name === "AbortError") {
           logEvent("Active Sledgehammer fetch timed out or aborted by user.");
-          setError("Request timed out (25s). Vercel edge function or API took too long to respond.");
+          setError("Request timed out (30s). Vercel edge function or API took too long to respond.");
           setPhase("idle");
           return; // Aborted: ignore state updates
         }
@@ -913,12 +928,16 @@ export default function ScopeSledgehammer() {
     setCompareResults(null);
     setFlash(true);
     setPhase("compare_loading");
+    setDrillId(null);
+    setDrillData({});
+    setDrillLoading(null);
+    setCopied(null);
 
     if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
     shakeTimeoutRef.current = setTimeout(() => setFlash(false), 280);
 
     const levels: BrutalityLevel[] = ["gentle", "ruthless", "nuclear"];
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const fetchPromises = levels.map(async (level) => {
@@ -964,15 +983,17 @@ export default function ScopeSledgehammer() {
             ? ["#FF2D2D"] 
             : ["#FF00FF", "#00FFFF", "#FF00FF"];
 
-          mappedResults[level].tickets = res.value.tickets.map((t: any, i: number) => ({
-            id: `COMP-${level.substring(0, 3).toUpperCase()}-${String(i + 1).padStart(3, "0")}`,
-            priority: priorityLabels[i] || "HIGH",
-            title: t.title ?? "Untitled Ticket",
-            scope: t.scope ?? "",
-            why: t.whyCut ?? t.why ?? "",
-            accent: accentColors[i % accentColors.length],
-            effort: t.effort,
-          }));
+          mappedResults[level].tickets = res.value.tickets
+            .filter((t: any) => t !== null && typeof t === "object")
+            .map((t: any, i: number) => ({
+              id: `COMP-${level.substring(0, 3).toUpperCase()}-${String(i + 1).padStart(3, "0")}`,
+              priority: priorityLabels[i] || "HIGH",
+              title: t.title ?? "Untitled Ticket",
+              scope: t.scope ?? "",
+              why: t.whyCut ?? t.why ?? "",
+              accent: accentColors[i % accentColors.length],
+              effort: t.effort,
+            }));
           logEvent(`${level.toUpperCase()} completions resolved with ${res.value.tickets.length} tickets.`);
         } else {
           const errorMsg = res.reason instanceof Error ? res.reason.message : "Fetch failed";
@@ -999,7 +1020,7 @@ export default function ScopeSledgehammer() {
       clearTimeout(timeoutId);
       if (controller.signal.aborted) {
         logEvent("Active comparison fetch timed out or aborted by user.");
-        setError("Comparison request timed out (25s). Vercel edge functions or API took too long to respond.");
+        setError("Comparison request timed out (30s). Vercel edge functions or API took too long to respond.");
         setPhase("idle");
         return;
       }
@@ -1033,6 +1054,10 @@ export default function ScopeSledgehammer() {
     setTicketsStale(false);
     setAnimatedReduction(0);
     setCompareResults(null);
+    setDrillId(null);
+    setDrillData({});
+    setDrillLoading(null);
+    setCopied(null);
     logEvent("Repository mapping reset. Cache cleared.");
   };
 
@@ -1097,7 +1122,7 @@ export default function ScopeSledgehammer() {
     trackPendo("drill_down_opened", { ticketId: ticket.id, title: ticket.title });
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     const fetchUrl = "/api/explain";
     const fetchBody = { ticket };
@@ -1128,25 +1153,25 @@ export default function ScopeSledgehammer() {
       }
       
       const data = await res.json();
-      setDrillData(prev => ({ ...prev, [ticket.id]: JSON.stringify(data) }));
+      setDrillData(prev => ({ ...prev, [ticket.id]: data }));
       setDrillId(ticket.id);
     } catch (e: any) {
       clearTimeout(timeoutId);
       console.error("[DrillDown] Error:", e);
       let errMsg = "All secondary features → v2.";
       if (e.name === "AbortError" || e.message?.includes("aborted")) {
-        errMsg = "Drill-down timed out (25s). Vercel edge function or API took too long.";
+        errMsg = "Drill-down timed out (30s). Vercel edge function or API took too long.";
       } else if (e.message) {
         errMsg = `Error: ${e.message}`;
       }
       setDrillId(ticket.id);
       setDrillData(prev => ({
         ...prev,
-        [ticket.id]: JSON.stringify({
+        [ticket.id]: {
           dayOne:   "Analysis failed or timed out.",
           defer:    errMsg,
           watchFor: "Try requesting the audit again in a few moments.",
-        }),
+        },
       }));
     } finally {
       setDrillLoading(null);
@@ -1878,19 +1903,19 @@ export default function ScopeSledgehammer() {
           {/* ── HERO ── */}
           <header style={{ marginBottom: 52, position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-              <div style={{ height: 1, width: 28, background: "linear-gradient(90deg, transparent, #00FFFF)" }} />
+              <div style={{ height: 1, width: 28, background: "linear-gradient(90deg, transparent, var(--system-accent))" }} />
               <span
                 style={{
                   fontFamily: "'JetBrains Mono', 'Courier New', monospace",
                   fontSize: 10.5,
                   letterSpacing: "0.32em",
                   textTransform: "uppercase",
-                  color: "#00FFFF",
+                  color: "var(--system-accent)",
                 }}
               >
                 AI Product Ruthlessness Engine v1.0
               </span>
-              <div style={{ height: 1, width: 28, background: "linear-gradient(90deg, #00FFFF, transparent)" }} />
+              <div style={{ height: 1, width: 28, background: "linear-gradient(90deg, var(--system-accent), transparent)" }} />
             </div>
 
             <h1
@@ -1905,14 +1930,14 @@ export default function ScopeSledgehammer() {
                 cursor: "default",
               }}
             >
-              <span style={{ display: "block", color: "#fff", textShadow: "3px 0 #FF00FF, -3px 0 #00FFFF" }}>
+              <span style={{ display: "block", color: "#fff", textShadow: "3px 0 var(--system-accent-magenta), -3px 0 var(--system-accent)" }}>
                 SCOPE
               </span>
               <span
                 style={{
                   display: "block",
-                  color: "#00FFFF",
-                  textShadow: "3px 0 #FF00FF, -3px 0 #fff, 0 0 90px rgba(0,255,255,0.4)",
+                  color: "var(--system-accent)",
+                  textShadow: "3px 0 var(--system-accent-magenta), -3px 0 #fff, 0 0 90px rgba(0,255,255,0.4)",
                 }}
               >
                 SLEDGE
@@ -1922,7 +1947,7 @@ export default function ScopeSledgehammer() {
                   display: "block",
                   WebkitTextStroke: "2px #fff",
                   color: "transparent",
-                  textShadow: "3px 0 #FF00FF, -3px 0 #00FFFF",
+                  textShadow: "3px 0 var(--system-accent-magenta), -3px 0 var(--system-accent)",
                 }}
               >
                 HAMMER
@@ -1942,8 +1967,8 @@ export default function ScopeSledgehammer() {
               style={{
                 marginTop: 24,
                 padding: "16px 20px",
-                borderLeft: "3px solid #FF00FF",
-                background: "rgba(255,0,255,0.04)",
+                borderLeft: "3px solid var(--system-accent-magenta)",
+                background: "var(--ruthless-bg)",
                 position: "relative",
               }}
             >
@@ -1956,10 +1981,10 @@ export default function ScopeSledgehammer() {
                   fontStyle: "italic",
                 }}
               >
-                <span style={{ color: "#FF00FF", fontWeight: 700, fontStyle: "normal" }}>&ldquo;</span>
+                <span style={{ color: "var(--system-accent-magenta)", fontWeight: 700, fontStyle: "normal" }}>&ldquo;</span>
                 92% of software startups collapse due to self-inflicted feature bloat.
                 Stop drafting roadmaps. Build what matters today.
-                <span style={{ color: "#FF00FF", fontWeight: 700, fontStyle: "normal" }}>&rdquo;</span>
+                <span style={{ color: "var(--system-accent-magenta)", fontWeight: 700, fontStyle: "normal" }}>&rdquo;</span>
               </p>
               <div
                 style={{
@@ -1968,8 +1993,8 @@ export default function ScopeSledgehammer() {
                   right: 0,
                   width: 16,
                   height: 16,
-                  borderBottom: "1px solid rgba(255,0,255,0.2)",
-                  borderRight: "1px solid rgba(255,0,255,0.2)",
+                  borderBottom: "1px solid var(--glass-border)",
+                  borderRight: "1px solid var(--glass-border)",
                   pointerEvents: "none",
                 }}
               />
@@ -1979,14 +2004,14 @@ export default function ScopeSledgehammer() {
             <div
               style={{
                 position: "absolute", top: 0, right: 0, width: 40, height: 40,
-                borderTop: "1.5px solid #00FFFF", borderRight: "1.5px solid #00FFFF",
+                borderTop: "1.5px solid var(--system-accent)", borderRight: "1.5px solid var(--system-accent)",
                 opacity: 0.18, pointerEvents: "none",
               }}
             />
             <div
               style={{
                 position: "absolute", top: 4, right: 4, width: 20, height: 20,
-                borderTop: "1px solid #FF00FF", borderRight: "1px solid #FF00FF",
+                borderTop: "1px solid var(--system-accent-magenta)", borderRight: "1px solid var(--system-accent-magenta)",
                 opacity: 0.12, pointerEvents: "none",
               }}
             />
@@ -2102,22 +2127,22 @@ export default function ScopeSledgehammer() {
                       fontSize: 9,
                       fontWeight: 700,
                       letterSpacing: "0.06em",
-                      color: "#00FFFF",
-                      background: "rgba(0,255,255,0.06)",
-                      border: "1px solid rgba(0,255,255,0.18)",
+                      color: "var(--system-accent)",
+                      background: "var(--gentle-bg)",
+                      border: "1px solid var(--glass-border)",
                       padding: "4px 10px",
                       cursor: "pointer",
                       whiteSpace: "nowrap" as const,
                       transition: "all 0.18s",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,255,0.12)";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,255,0.35)";
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(0,255,255,0.15)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px var(--gentle-bg)";
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,255,0.06)";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,255,0.18)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
                       (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
                     }}
                   >
@@ -2195,21 +2220,21 @@ export default function ScopeSledgehammer() {
                     fontSize: "0.85rem",
                     letterSpacing: "0.15em",
                     textTransform: "uppercase",
-                    color: isInputEmpty ? "#71717A" : "#00FFFF",
-                    border: isInputEmpty ? "1px solid rgba(255,255,255,0.08)" : "1px solid #00FFFF",
+                    color: isInputEmpty ? "#71717A" : "var(--system-accent)",
+                    border: isInputEmpty ? "1px solid rgba(255,255,255,0.08)" : "1px solid var(--system-accent)",
                     cursor: isInputEmpty ? "not-allowed" : "pointer",
                     outline: "none",
                     padding: "15px 30px",
                     background: isInputEmpty
                       ? "rgba(255,255,255,0.02)"
-                      : "rgba(0, 255, 255, 0.04)",
+                      : "var(--gentle-bg)",
                     boxShadow: isInputEmpty
                       ? "none"
                       : compareBtnPressed
-                      ? "1px 1px 0 #FF00FF"
+                      ? "1px 1px 0 var(--system-accent-magenta)"
                       : compareBtnHovered
-                      ? "4px 4px 0 #FF00FF, 0 0 20px rgba(0,255,255,0.15)"
-                      : "3px 3px 0 #FF00FF",
+                      ? "4px 4px 0 var(--system-accent-magenta), 0 0 20px var(--gentle-bg)"
+                      : "3px 3px 0 var(--system-accent-magenta)",
                     transform: isInputEmpty
                       ? "none"
                       : compareBtnPressed
@@ -2407,10 +2432,10 @@ export default function ScopeSledgehammer() {
                     background: isInputEmpty
                       ? "rgba(255,255,255,0.08)"
                       : brutalityLevel === "gentle"
-                      ? "linear-gradient(135deg, #00FFFF 0%, #00CCDD 100%)"
+                      ? "linear-gradient(135deg, var(--gentle-color) 0%, var(--gentle-color)cc 100%)"
                       : brutalityLevel === "ruthless"
-                      ? "linear-gradient(135deg, #FF00FF 0%, #CC00CC 100%)"
-                      : "linear-gradient(135deg, #FF2D2D 0%, #CC0000 100%)",
+                      ? "linear-gradient(135deg, var(--ruthless-color) 0%, var(--ruthless-color)cc 100%)"
+                      : "linear-gradient(135deg, var(--nuclear-color) 0%, var(--nuclear-color)cc 100%)",
                     boxShadow: btnShadow,
                     transform: btnTranslate,
                     transition: "box-shadow 0.15s, transform 0.1s, background 0.2s, color 0.2s",
@@ -2478,14 +2503,14 @@ export default function ScopeSledgehammer() {
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Terminal size={14} style={{ color: "#00FFFF" }} />
+                  <Terminal size={14} style={{ color: "var(--system-accent)" }} />
                   <span
                     style={{
                       fontFamily: "'JetBrains Mono', 'Courier New', monospace",
                       fontSize: 11,
                       letterSpacing: "0.3em",
                       textTransform: "uppercase",
-                      color: "#00FFFF",
+                      color: "var(--system-accent)",
                     }}
                   >
                     sledgehammer:~$ executing
@@ -2493,7 +2518,7 @@ export default function ScopeSledgehammer() {
                   <span
                     className="scope-blink"
                     style={{
-                      color: "#00FFFF",
+                      color: "var(--system-accent)",
                       fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 14,
                       marginLeft: 2,
@@ -2558,13 +2583,13 @@ export default function ScopeSledgehammer() {
                         fontSize: 12.5,
                         transition: "all 0.35s",
                         opacity: isCurrent ? 1 : isPast ? 0.35 : 0.1,
-                        color: isCurrent ? "#00FFFF" : isPast ? "#3F3F46" : "#1C1C1F",
+                        color: isCurrent ? "var(--system-accent)" : isPast ? "#3F3F46" : "#1C1C1F",
                       }}
                     >
                       <span
                         style={{
                           minWidth: 14,
-                          color: isCurrent ? "#FF00FF" : isPast ? "#374151" : "#1C1C1F",
+                          color: isCurrent ? "var(--system-accent-magenta)" : isPast ? "#374151" : "#1C1C1F",
                           fontSize: 13,
                         }}
                       >
@@ -2572,7 +2597,7 @@ export default function ScopeSledgehammer() {
                       </span>
                       {msg}
                       {isCurrent && (
-                        <span className="scope-blink" style={{ color: "#00FFFF" }}>
+                        <span className="scope-blink" style={{ color: "var(--system-accent)" }}>
                           _
                         </span>
                       )}
@@ -2596,7 +2621,7 @@ export default function ScopeSledgehammer() {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: "#00FFFF",
+                    background: "var(--system-accent)",
                     animation: "blink 1s ease-in-out infinite",
                     flexShrink: 0,
                   }}
@@ -2628,14 +2653,14 @@ export default function ScopeSledgehammer() {
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Terminal size={14} style={{ color: "#FF00FF" }} />
+                  <Terminal size={14} style={{ color: "var(--system-accent-magenta)" }} />
                   <span
                     style={{
                       fontFamily: "'JetBrains Mono', 'Courier New', monospace",
                       fontSize: 11,
                       letterSpacing: "0.3em",
                       textTransform: "uppercase",
-                      color: "#FF00FF",
+                      color: "var(--system-accent-magenta)",
                     }}
                   >
                     sledgehammer:~$ comparing all modes
@@ -2643,7 +2668,7 @@ export default function ScopeSledgehammer() {
                   <span
                     className="scope-blink"
                     style={{
-                      color: "#FF00FF",
+                      color: "var(--system-accent-magenta)",
                       fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 14,
                       marginLeft: 2,
@@ -2705,7 +2730,7 @@ export default function ScopeSledgehammer() {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: "#FF00FF",
+                    background: "var(--system-accent-magenta)",
                     animation: "blink 1s ease-in-out infinite",
                     flexShrink: 0,
                   }}
@@ -2765,9 +2790,9 @@ export default function ScopeSledgehammer() {
                     transition: "all 0.18s",
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#00FFFF";
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#00FFFF";
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(0,255,255,0.15)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "var(--system-accent)";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px var(--gentle-bg)";
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
@@ -2791,12 +2816,12 @@ export default function ScopeSledgehammer() {
                       alignItems: "center",
                       gap: 8,
                       padding: "10px 14px",
-                      border: "1px solid rgba(0,255,255,0.22)",
-                      background: "rgba(0,255,255,0.04)",
+                      border: "1px solid var(--glass-border)",
+                      background: "var(--gentle-bg)",
                     }}
                   >
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00FFFF", boxShadow: "0 0 8px #00FFFF" }} />
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#00FFFF", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--gentle-color)", boxShadow: "0 0 8px var(--gentle-color)" }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "var(--gentle-color)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
                       Gentle Cut
                     </span>
                   </div>
@@ -2833,12 +2858,12 @@ export default function ScopeSledgehammer() {
                       alignItems: "center",
                       gap: 8,
                       padding: "10px 14px",
-                      border: "1px solid rgba(255,0,255,0.22)",
-                      background: "rgba(255,0,255,0.04)",
+                      border: "1px solid var(--glass-border)",
+                      background: "var(--ruthless-bg)",
                     }}
                   >
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF00FF", boxShadow: "0 0 8px #FF00FF" }} />
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#FF00FF", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--ruthless-color)", boxShadow: "0 0 8px var(--ruthless-color)" }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "var(--ruthless-color)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
                       Ruthless Slash
                     </span>
                   </div>
@@ -2875,12 +2900,12 @@ export default function ScopeSledgehammer() {
                       alignItems: "center",
                       gap: 8,
                       padding: "10px 14px",
-                      border: "1px solid rgba(255,45,45,0.22)",
-                      background: "rgba(255,45,45,0.04)",
+                      border: "1px solid var(--glass-border)",
+                      background: "var(--nuclear-bg)",
                     }}
                   >
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF2D2D", boxShadow: "0 0 8px #FF2D2D" }} />
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#FF2D2D", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--nuclear-color)", boxShadow: "0 0 8px var(--nuclear-color)" }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "var(--nuclear-color)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
                       Nuclear Core
                     </span>
                   </div>
@@ -3123,8 +3148,8 @@ export default function ScopeSledgehammer() {
                           fontFamily: "'JetBrains Mono', monospace",
                           fontSize: 12,
                           fontWeight: 700,
-                          color: "#00FFFF",
-                          textShadow: "0 0 8px rgba(0, 255, 255, 0.4)",
+                          color: "var(--system-accent)",
+                          textShadow: "0 0 8px var(--gentle-bg)",
                           letterSpacing: "0.05em",
                         }}
                       >
@@ -3145,20 +3170,20 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.2em",
                       textTransform: "uppercase",
-                      color: "#00FFFF",
+                      color: "var(--system-accent)",
                       background: "none",
-                      border: "1px solid rgba(0,255,255,0.4)",
+                      border: "1px solid var(--glass-border)",
                       padding: "8px 12px",
                       cursor: "pointer",
                       transition: "all 0.18s",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,255,0.08)";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#00FFFF";
+                      (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.background = "none";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,255,0.4)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
                     }}
                   >
                     Deploy MVP
@@ -3322,7 +3347,7 @@ export default function ScopeSledgehammer() {
           <div
             style={{
               marginTop: 48,
-              border: "1px dashed rgba(0, 255, 255, 0.4)",
+              border: "1px dashed var(--system-accent)",
               background: "rgba(0, 0, 0, 0.4)",
               padding: "16px 20px",
               fontFamily: "'JetBrains Mono', monospace",
@@ -3333,7 +3358,7 @@ export default function ScopeSledgehammer() {
               <summary
                 style={{
                   fontWeight: 800,
-                  color: "#00FFFF",
+                  color: "var(--system-accent)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                   listStyle: "none",
@@ -3352,9 +3377,9 @@ export default function ScopeSledgehammer() {
                   Scope Sledgehammer uses a cynical auditor engine to slice your bloated concepts down to atomic must-haves. Depending on your brutality setting:
                 </p>
                 <ul style={{ listStyleType: "square", paddingLeft: 20, marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-                  <li><strong style={{ color: "#00FFFF" }}>Gentle Mode:</strong> Applies light Jobs-to-be-Done (JTBD) scoping. Organizes core functions.</li>
-                  <li><strong style={{ color: "#FF00FF" }}>Ruthless Mode:</strong> Applies strict MoSCoW parameters. Keeps core Must-Haves; completely purges should-haves.</li>
-                  <li><strong style={{ color: "#FF2D2D" }}>Nuclear Mode:</strong> Reduces the application to a single key function concept.</li>
+                  <li><strong style={{ color: "var(--gentle-color)" }}>Gentle Mode:</strong> Applies light Jobs-to-be-Done (JTBD) scoping. Organizes core functions.</li>
+                  <li><strong style={{ color: "var(--ruthless-color)" }}>Ruthless Mode:</strong> Applies strict MoSCoW parameters. Keeps core Must-Haves; completely purges should-haves.</li>
+                  <li><strong style={{ color: "var(--nuclear-color)" }}>Nuclear Mode:</strong> Reduces the application to a single key function concept.</li>
                 </ul>
                 <p>
                   Take the generated tickets, export them to your board, and write code ONLY for these specific components. Ship within the week or die in the registry.
@@ -3410,7 +3435,7 @@ export default function ScopeSledgehammer() {
               color: "#3F3F46",
             }}
           >
-            Built by <strong style={{ color: "#00FFFF", fontWeight: 700 }}>Team Infernyx</strong>
+            Built by <strong style={{ color: "var(--system-accent)", fontWeight: 700 }}>Team Infernyx</strong>
           </span>
         </footer>
 
