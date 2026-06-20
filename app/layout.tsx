@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SCOPE SLEDGEHAMMER // MVP Ticket Generator",
   description:
-    "A brutalist AI tool that slashes bloated product ideas into prioritized MVP tickets using the Grok API.",
+    "A brutalist AI tool that slashes bloated product ideas into prioritized MVP tickets using the Groq API.",
 };
 
 export default function RootLayout({

@@ -1,52 +1,83 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+
+function getMockExplanation(title: string) {
+  return {
+    dayOne: `Write the bare minimum script/code to implement ${title}. No database, no auth, no UI wrapper.`,
+    defer: "Push all cloud integrations, advanced databases, dynamic scaling, and analytics dashboard to the post-launch backlog.",
+    watchFor: "Watch out for stakeholders asking 'does this support SSO?' or 'how do we scale this to 10k users?'. Ignore them."
+  };
+}
 
 export async function POST(request: Request) {
-  const { ticket } = await request.json();
-
-  const apiKey = process.env.GROK_API_KEY;
-
-  if (!apiKey) {
-    return NextResponse.json({
-      dayOne:   "Build the absolute minimum: one screen, one action, one data write.",
-      defer:    "All integrations, notifications, and analytics go to v2 — ship without them.",
-      watchFor: "Any sentence starting with 'can we also add…' is scope creep. Kill it.",
-    });
+  let requestBody: any = {};
+  try {
+    requestBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON input." },
+      { status: 400 }
+    );
   }
 
-  const system = `You are a brutally efficient product lead. Given a development ticket,
-return ONLY a valid JSON object with exactly these three string keys:
-- "dayOne": one short sentence — what to ship by end of day 1
-- "defer": one short sentence — what to explicitly cut and push to v2
-- "watchFor": one short sentence — the most likely scope-creep trap for this ticket
-No markdown, no preamble.`;
+  const ticket = requestBody.ticket || {};
+  const title = requestBody.title || ticket.title;
+  const scope = requestBody.scope || ticket.scope;
+  const why = requestBody.why || ticket.whyCut || ticket.why;
 
-  const user = `Ticket: ${ticket.title}\nScope: ${ticket.scope}\nWhy: ${ticket.why}`;
+  if (!title || !scope) {
+    return NextResponse.json(
+      { error: "Missing required fields (title, scope)." },
+      { status: 400 }
+    );
+  }
 
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      response_format: { type: "json_object" },
-      temperature: 0.25,
-      max_tokens: 256,
-    }),
-  });
-
-  const data = await res.json();
-  const raw  = data.choices?.[0]?.message?.content ?? "{}";
+  const apiKey = process.env.GROK_API_KEY;
+  if (!apiKey) {
+    console.warn("GROK_API_KEY missing for Groq API. Activating mock explanation fallback...");
+    return NextResponse.json(getMockExplanation(title));
+  }
 
   try {
-    return NextResponse.json(JSON.parse(raw));
-  } catch {
-    return NextResponse.json({
-      dayOne:   "Ship core CRUD in a single route. No auth layer yet.",
-      defer:    "Dashboard, notifications, and integrations → v2.",
-      watchFor: "Stakeholder requests for 'just one more field' — decline every one.",
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "You are a cynical, elite Silicon Valley Product Auditor. For the provided MVP ticket, give a brutalist analysis in JSON format with exactly three keys: 'dayOne', 'defer', and 'watchFor'. Keep each explanation very concise (1-2 sentences max). Return ONLY the JSON object. Do not wrap it in markdown code blocks or add introductory text."
+          },
+          {
+            role: "user",
+            content: `Ticket Title: ${title}\nScope: ${scope}\nWhy Cut: ${why}`
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      })
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errMsg = data.error?.message || response.statusText || "Groq API Error";
+      throw new Error(errMsg);
+    }
+
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("Empty response from Groq engine.");
+    }
+
+    const parsedData = JSON.parse(content);
+    return NextResponse.json(parsedData);
+
+  } catch (error: unknown) {
+    console.error("Groq Route Error, invoking fallback:", error);
+    return NextResponse.json(getMockExplanation(title));
   }
 }

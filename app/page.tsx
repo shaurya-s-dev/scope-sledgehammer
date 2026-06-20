@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { Zap, Target, HelpCircle, Terminal, RotateCcw, Copy, Check, AlertTriangle } from "lucide-react";
 import NovusDashboard from "@/components/NovusDashboard";
 import NetworkBackground from "@/components/NetworkBackground";
-import PendoDebug       from "@/components/PendoDebug";
+import PendoDebug from "@/components/PendoDebug";
 
 const LOADING_MESSAGES = [
   "Shredding roadmaps...",
@@ -136,6 +136,7 @@ function TicketCard({
                 `${ticket.id}: ${ticket.title}\nScope: ${ticket.scope}\nWhy: ${ticket.why}`
               )
             }
+            aria-label="Copy ticket details"
             style={{
               background: "none",
               border: "none",
@@ -341,6 +342,7 @@ export default function ScopeSledgehammer() {
 
   const handleExportCSV = () => {
     if (tickets.length === 0) return;
+    trackPendo("tickets_exported", { format: "csv", count: tickets.length });
     const escapeCSV = (text: string) => {
       const escaped = text.replace(/"/g, '""');
       return `"${escaped}"`;
@@ -415,6 +417,7 @@ export default function ScopeSledgehammer() {
     }
 
     logEvent(`SLEDGEHAMMER execution requested. Input size: ${inputValue.length} chars.`);
+    trackPendo("sledgehammer_fired", { brutality: brutalityLevel, inputLength: inputValue.length });
 
     // Cancel any ongoing fetch before launching a new one
     if (abortControllerRef.current) {
@@ -487,7 +490,8 @@ export default function ScopeSledgehammer() {
           }));
           setTickets(mapped);
           setPhase("revealed");
-          abortControllerRef.current = null;   
+          abortControllerRef.current = null;
+          trackPendo("sledgehammer_revealed", { ticketCount: mapped.length, brutality: brutalityLevel });
           const modeStr = data.stats?.mode === "live" ? "LIVE (Groq)" : "FALLBACK (mock)";
           logEvent(`API request resolved. Generated ${data.tickets.length} tickets. [Mode: ${modeStr}]`);
         } else {
@@ -507,6 +511,7 @@ export default function ScopeSledgehammer() {
   };
 
   const handleReset = () => {
+    trackPendo("reset_triggered");
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -532,6 +537,7 @@ export default function ScopeSledgehammer() {
 
   const handleBrutalityChange = (level: BrutalityLevel) => {
     if (level === brutalityLevel) return;
+    trackPendo("brutality_changed", { level });
     setBrutalityLevel(level);
     setBrutalityFlash(true);
     if (brutalityTimeoutRef.current) clearTimeout(brutalityTimeoutRef.current);
@@ -544,15 +550,44 @@ export default function ScopeSledgehammer() {
   };
 
   const handleCopy = (id: string, text: string) => {
-    try {
-      navigator.clipboard.writeText(text);
-    } catch {
-      // Ignore clipboard write errors safely
+    trackPendo("ticket_copied", { ticketId: id });
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          setCopied(id);
+          if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+          copiedTimeoutRef.current = setTimeout(() => setCopied(null), 1500);
+          logEvent(`Ticket ${id} copied to system clipboard.`);
+        })
+        .catch(() => {
+          fallbackCopy(id, text);
+        });
+    } else {
+      fallbackCopy(id, text);
     }
-    setCopied(id);
-    if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
-    copiedTimeoutRef.current = setTimeout(() => setCopied(null), 1500);
-    logEvent(`Ticket ${id} copied to system clipboard.`);
+  };
+
+  const fallbackCopy = (id: string, text: string) => {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const successful = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      if (successful) {
+        setCopied(id);
+        if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+        copiedTimeoutRef.current = setTimeout(() => setCopied(null), 1500);
+        logEvent(`Ticket ${id} copied to clipboard (fallback).`);
+      } else {
+        logEvent(`Failed to copy ticket ${id}.`);
+      }
+    } catch (err) {
+      logEvent(`Failed to copy ticket ${id} (error).`);
+    }
   };
   
   const handleDrillDown = async (ticket: Ticket) => {
@@ -632,6 +667,8 @@ export default function ScopeSledgehammer() {
 
   return (
     <>
+      <NetworkBackground />
+      <PendoDebug />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -2018,20 +2055,115 @@ export default function ScopeSledgehammer() {
                   ...(ticketsStale ? { pointerEvents: "none" as const } : {}),
                 }}
               >
-                {tickets.map((ticket, i) => (
-                  <div
-                    key={ticket.id ?? i}
-                    className="scope-card-in"
-                    style={{ animationDelay: `${i * 180}ms` }}
-                  >
-                    <TicketCard
-                      ticket={ticket}
-                      index={i}
-                      copied={copied}
-                      onCopy={handleCopy}
-                    />
-                  </div>
-                ))}
+                {tickets.map((ticket, i) => {
+                  const isDrillOpen = drillId === ticket.id;
+                  const explanation = drillData[ticket.id] ? JSON.parse(drillData[ticket.id]) : null;
+                  const isLoading = drillLoading === ticket.id;
+
+                  return (
+                    <div
+                      key={ticket.id ?? i}
+                      className="scope-card-in"
+                      style={{
+                        animationDelay: `${i * 180}ms`,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 0,
+                        marginBottom: 16,
+                      }}
+                    >
+                      <TicketCard
+                        ticket={ticket}
+                        index={i}
+                        copied={copied}
+                        onCopy={handleCopy}
+                      />
+                      
+                      {/* Action Bar & Collapsible Panel */}
+                      <div
+                        style={{
+                          background: "rgba(10,10,12,0.85)",
+                          border: "1px solid rgba(255, 255, 255, 0.07)",
+                          borderTop: "none",
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+                          display: "flex",
+                          flexDirection: "column",
+                          marginTop: -1, // overlap the border of TicketCard
+                        }}
+                      >
+                        <div
+                          style={{
+                            padding: "12px 24px",
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            background: "rgba(0, 0, 0, 0.25)",
+                          }}
+                        >
+                          <button
+                            onClick={() => handleDrillDown(ticket)}
+                            disabled={drillLoading !== null && !isLoading}
+                            style={{
+                              fontFamily: "'JetBrains Mono', monospace",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                              color: isDrillOpen ? "#FF00FF" : "#00FFFF",
+                              background: "none",
+                              border: `1px solid ${isDrillOpen ? "#FF00FF" : "rgba(0, 255, 255, 0.3)"}`,
+                              padding: "5px 12px",
+                              cursor: (drillLoading !== null && !isLoading) ? "not-allowed" : "pointer",
+                              transition: "all 0.2s",
+                              opacity: (drillLoading !== null && !isLoading) ? 0.5 : 1,
+                            }}
+                          >
+                            {isLoading ? "⚡ ANALYZING..." : isDrillOpen ? "▲ HIDE ANALYSIS" : "▼ AI DRILL-DOWN"}
+                          </button>
+                        </div>
+
+                        {/* Collapsible Panel */}
+                        {isDrillOpen && explanation && (
+                          <div
+                            style={{
+                              padding: "20px 24px",
+                              background: "rgba(5, 5, 8, 0.4)",
+                              borderTop: "1px dashed rgba(255, 255, 255, 0.08)",
+                              fontFamily: "'Space Grotesk', system-ui, sans-serif",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 16,
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF00FF", marginBottom: 4 }}>
+                                // Day One Implementation
+                              </div>
+                              <p style={{ fontSize: 13, color: "#E4E4E7", margin: 0, lineHeight: 1.6 }}>
+                                {explanation.dayOne}
+                              </p>
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#00FFFF", marginBottom: 4 }}>
+                                // Deferred Scope
+                              </div>
+                              <p style={{ fontSize: 13, color: "#A1A1AA", margin: 0, lineHeight: 1.6 }}>
+                                {explanation.defer}
+                              </p>
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF2D2D", marginBottom: 4 }}>
+                                // Technical Risks & Warning
+                              </div>
+                              <p style={{ fontSize: 13, color: "#FFAA00", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
+                                {explanation.watchFor}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <p
