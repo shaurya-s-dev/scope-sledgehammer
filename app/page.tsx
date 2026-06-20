@@ -3415,20 +3415,20 @@ export default function ScopeSledgehammer() {
                   className={`scope-tag-enter ${brutalityLevel === "nuclear" ? "scope-nuclear-tag" : ""}`}
                   style={{
                     marginTop: 10,
-                    padding: "10px 14px",
-                    border: `1px solid ${currentMeta.color}30`,
-                    background: currentMeta.bgColor,
+                    padding: "8px 14px",
+                    borderRadius: 4,
+                    border: "1px solid rgba(0,255,255,0.2)",
+                    background: "rgba(0,255,255,0.05)",
                     display: "flex",
                     alignItems: "center",
-                    gap: 10,
-                    transition: "border-color 0.3s, background 0.3s",
+                    gap: 8,
                   }}
                 >
                   <div
                     style={{
                       width: 6, height: 6, borderRadius: "50%",
-                      background: currentMeta.color,
-                      boxShadow: `0 0 8px ${currentMeta.color}`,
+                      background: "#00ffff",
+                      boxShadow: "0 0 8px rgba(0,255,255,0.5)",
                       flexShrink: 0,
                       animation: brutalityLevel === "nuclear" ? "blink 0.8s ease-in-out infinite" : "none",
                     }}
@@ -3438,7 +3438,7 @@ export default function ScopeSledgehammer() {
                       fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 10,
                       letterSpacing: "0.08em",
-                      color: currentMeta.color,
+                      color: "#00ffff",
                       opacity: 0.9,
                     }}
                   >
@@ -3453,50 +3453,59 @@ export default function ScopeSledgehammer() {
                   className="scope-tag-enter"
                   style={{
                     marginBottom: 24,
-                    padding: "16px 20px",
-                    border: `1px solid ${currentMeta.color}35`,
-                    background: currentMeta.bgColor,
+                    padding: "10px 16px",
+                    borderRadius: 6,
+                    border: "1px solid rgba(255, 0, 60, 0.4)",
+                    background: "rgba(255, 0, 60, 0.08)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    gap: 16,
+                    gap: 12,
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ color: currentMeta.color, fontSize: 16 }}>{currentMeta.icon}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: "#ff003c", fontSize: 14, flexShrink: 0 }}>{currentMeta.icon}</span>
                     <span
                       style={{
                         fontFamily: "'JetBrains Mono', monospace",
                         fontSize: 11,
-                        color: "#A1A1AA",
-                        letterSpacing: "0.06em",
+                        color: "#ff6688",
+                        letterSpacing: "0.04em",
                       }}
                     >
-                      Brutality changed to <strong style={{ color: currentMeta.color }}>{brutalityLevel}</strong>. Results are stale.
+                      Brutality changed to <strong style={{ color: "#ff00ff", fontWeight: 700 }}>{brutalityLevel}</strong>. Results are stale.
                     </span>
                   </div>
                   <button
                     onClick={handleSledgehammer}
                     style={{
                       fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: 10,
-                      fontWeight: 800,
-                      letterSpacing: "0.14em",
-                      textTransform: "uppercase",
-                      color: "#000",
-                      background: `linear-gradient(135deg, ${currentMeta.color}, ${currentMeta.color}CC)`,
-                      border: "none",
-                      padding: "8px 18px",
+                      fontSize: 12,
+                      border: "1px solid rgba(0,255,255,0.6)",
+                      color: "#00ffff",
+                      background: "rgba(0,255,255,0.08)",
+                      padding: "6px 14px",
+                      borderRadius: 4,
                       cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
                       whiteSpace: "nowrap" as const,
                       transition: "all 0.15s",
-                      boxShadow: `0 0 16px ${currentMeta.color}33`,
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 0 28px ${currentMeta.color}55`;
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,255,0.18)";
+                      (e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.2)";
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 0 16px ${currentMeta.color}33`;
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,255,0.08)";
+                      (e.currentTarget as HTMLButtonElement).style.filter = "none";
+                    }}
+                    onMouseDown={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.95)";
+                    }}
+                    onMouseUp={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
                     }}
                   >
                     ↻ Re-Sledgehammer
