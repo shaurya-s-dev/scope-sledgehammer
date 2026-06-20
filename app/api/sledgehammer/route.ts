@@ -96,7 +96,7 @@ export async function POST(request: Request) {
 
   const apiKey = process.env.GROK_API_KEY;
   if (!apiKey) {
-    console.warn("GROK_API_KEY missing. Activating fallback mock tickets...");
+    console.warn("GROK_API_KEY missing — activating fallback mock tickets (Groq key not set).");
     const fallback = getFallbackTickets(promptText, brutalityLevel);
     return NextResponse.json({
       tickets: fallback,

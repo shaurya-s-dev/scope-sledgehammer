@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Zap, Target, HelpCircle, Terminal, RotateCcw, Copy, Check, AlertTriangle } from "lucide-react";
 import NovusDashboard from "@/components/NovusDashboard";
+import NetworkBackground from "@/components/NetworkBackground";
+import PendoDebug       from "@/components/PendoDebug";
 
 const LOADING_MESSAGES = [
   "Shredding roadmaps...",
@@ -258,6 +260,17 @@ function TicketCard({
 }
 
 export default function ScopeSledgehammer() {
+  // ── Pendo track helper ──────────────────────────────────
+  const trackPendo = (name: string, props?: Record<string, unknown>) => {
+  if (typeof window !== "undefined" && (window as any).pendo?.track) {
+    (window as any).pendo.track(name, props);
+  }
+};
+
+// ── Drill-down state ─────────────────────────────────────
+  const [drillId,      setDrillId]      = useState<string | null>(null);
+  const [drillData,    setDrillData]    = useState<Record<string, string>>({});
+  const [drillLoading, setDrillLoading] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle" | "shaking" | "loading" | "revealed">("idle");
   const [inputValue, setInputValue] = useState("");
   const [msgIndex, setMsgIndex] = useState(0);
@@ -447,7 +460,7 @@ export default function ScopeSledgehammer() {
     loadTimeoutRef.current = setTimeout(async () => {
       setMsgIndex(0);
       setPhase("loading");
-      logEvent(`Initiating Grok completions API request. Brutality: ${brutalityLevel.toUpperCase()}`);
+      logEvent(`Initiating Groq completions API request. Brutality: ${brutalityLevel.toUpperCase()}`);
 
       try {
         const response = await fetch("/api/sledgehammer", {
@@ -474,8 +487,8 @@ export default function ScopeSledgehammer() {
           }));
           setTickets(mapped);
           setPhase("revealed");
-          
-          const modeStr = data.stats?.mode === "live" ? "LIVE completions" : "CACHE fallback mock";
+          abortControllerRef.current = null;   
+          const modeStr = data.stats?.mode === "live" ? "LIVE (Groq)" : "FALLBACK (mock)";
           logEvent(`API request resolved. Generated ${data.tickets.length} tickets. [Mode: ${modeStr}]`);
         } else {
           throw new Error("Malformed data format received.");
@@ -541,6 +554,34 @@ export default function ScopeSledgehammer() {
     copiedTimeoutRef.current = setTimeout(() => setCopied(null), 1500);
     logEvent(`Ticket ${id} copied to system clipboard.`);
   };
+  
+  const handleDrillDown = async (ticket: Ticket) => {
+  if (drillId === ticket.id) { setDrillId(null); return; }
+  setDrillLoading(ticket.id);
+  trackPendo("drill_down_opened", { ticketId: ticket.id, title: ticket.title });
+  try {
+    const res  = await fetch("/api/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket }),
+    });
+    const data = await res.json();
+    setDrillData(prev => ({ ...prev, [ticket.id]: JSON.stringify(data) }));
+    setDrillId(ticket.id);
+  } catch {
+    setDrillId(ticket.id);
+    setDrillData(prev => ({
+      ...prev,
+      [ticket.id]: JSON.stringify({
+        dayOne:   "Ship the MVP core immediately.",
+        defer:    "All secondary features → v2.",
+        watchFor: "Any 'just quickly add' request.",
+      }),
+    }));
+  } finally {
+    setDrillLoading(null);
+  }
+};
 
   const isInputEmpty = inputValue.trim().length === 0;
 
@@ -620,11 +661,6 @@ export default function ScopeSledgehammer() {
           50%  { opacity: 0.14; }
           75%  { opacity: 0.04; }
           100% { opacity: 0; }
-        }
-
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0; }
         }
 
         @keyframes shimmerSweep {
@@ -1649,7 +1685,7 @@ export default function ScopeSledgehammer() {
                     textTransform: "uppercase",
                   }}
                 >
-                  Calling Grok API — brutality: {brutalityLevel}
+                  Calling Groq API — brutality: {brutalityLevel}
                 </span>
               </div>
             </div>
