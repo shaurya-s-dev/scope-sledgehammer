@@ -21,7 +21,7 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
   const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (phase === "revealed" && prevPhaseRef.current === "loading" && ticketCount > 0) {
+    if ((phase === "revealed" || phase === "compare_revealed") && (prevPhaseRef.current === "loading" || prevPhaseRef.current === "compare_loading") && ticketCount > 0) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
@@ -83,12 +83,12 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
 
   const logMessages: string[] = [];
 
-  if (phase === "loading") {
+  if (phase === "loading" || phase === "compare_loading") {
     logMessages.push("[SYSTEM]: Repository mapping initialized...");
     logMessages.push("[SYSTEM]: Isolating high-risk structural bottlenecks...");
     logMessages.push("[SYSTEM]: Brutality level set to " + brutalityLevel.toUpperCase());
   }
-  if (phase === "revealed") {
+  if (phase === "revealed" || phase === "compare_revealed") {
     logMessages.push("[SYSTEM]: " + ticketCount + " ticket(s) generated.");
     logMessages.push("[SYSTEM]: MVP value architecture locked.");
     logMessages.push("[SYSTEM]: Estimated time-to-ship saved: " + timeSaved + " weeks.");

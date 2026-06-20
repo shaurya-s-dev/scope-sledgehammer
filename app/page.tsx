@@ -260,6 +260,193 @@ function TicketCard({
   );
 }
 
+function SkeletonColumn({ modeName, accentColor, cardCount = 3 }: { modeName: string; accentColor: string; cardCount?: number }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Column Badge Skeleton */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "10px 14px",
+          border: `1px solid ${accentColor}22`,
+          background: "rgba(9,9,11,0.6)",
+          marginBottom: 8,
+        }}
+      >
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: accentColor, boxShadow: `0 0 8px ${accentColor}` }} />
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: accentColor, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          {modeName}
+        </span>
+      </div>
+
+      {/* Cards Skeletons */}
+      {Array.from({ length: cardCount }).map((_, idx) => (
+        <div
+          key={idx}
+          className="skeleton-pulse"
+          style={{
+            background: "rgba(15,15,18,0.9)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            padding: "20px 24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            height: 220,
+          }}
+        >
+          {/* Header Row */}
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ width: 80, height: 18, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }} />
+              <div style={{ width: 60, height: 18, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }} />
+            </div>
+          </div>
+          {/* Title Row */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ width: "40%", height: 10, background: "rgba(255,255,255,0.03)" }} />
+            <div style={{ width: "90%", height: 22, background: "rgba(255,255,255,0.06)" }} />
+          </div>
+          {/* Scope Row */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ width: "50%", height: 10, background: "rgba(255,255,255,0.03)" }} />
+            <div style={{ width: "100%", height: 14, background: "rgba(255,255,255,0.05)" }} />
+            <div style={{ width: "80%", height: 14, background: "rgba(255,255,255,0.05)" }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TicketWithDrillDown({
+  ticket,
+  index,
+  copied,
+  onCopy,
+  drillId,
+  drillLoading,
+  drillData,
+  onDrillDown,
+}: {
+  ticket: Ticket;
+  index: number;
+  copied: string | null;
+  onCopy: (id: string, text: string) => void;
+  drillId: string | null;
+  drillLoading: string | null;
+  drillData: Record<string, string>;
+  onDrillDown: (ticket: Ticket) => void;
+}) {
+  const isDrillOpen = drillId === ticket.id;
+  const explanation = drillData[ticket.id] ? JSON.parse(drillData[ticket.id]) : null;
+  const isLoading = drillLoading === ticket.id;
+
+  return (
+    <div
+      className="scope-card-in"
+      style={{
+        animationDelay: `${index * 120}ms`,
+        display: "flex",
+        flexDirection: "column",
+        gap: 0,
+        marginBottom: 16,
+      }}
+    >
+      <TicketCard
+        ticket={ticket}
+        index={index}
+        copied={copied}
+        onCopy={onCopy}
+      />
+      
+      {/* Action Bar & Collapsible Panel */}
+      <div
+        style={{
+          background: "rgba(10,10,12,0.85)",
+          border: "1px solid rgba(255, 255, 255, 0.07)",
+          borderTop: "none",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+          display: "flex",
+          flexDirection: "column",
+          marginTop: -1, // overlap the border of TicketCard
+        }}
+      >
+        <div
+          style={{
+            padding: "12px 24px",
+            display: "flex",
+            justifyContent: "flex-end",
+            background: "rgba(0, 0, 0, 0.25)",
+          }}
+        >
+          <button
+            onClick={() => onDrillDown(ticket)}
+            disabled={drillLoading !== null && !isLoading}
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: isDrillOpen ? "#FF00FF" : "#00FFFF",
+              background: "none",
+              border: `1px solid ${isDrillOpen ? "#FF00FF" : "rgba(0, 255, 255, 0.3)"}`,
+              padding: "5px 12px",
+              cursor: (drillLoading !== null && !isLoading) ? "not-allowed" : "pointer",
+              transition: "all 0.2s",
+              opacity: (drillLoading !== null && !isLoading) ? 0.5 : 1,
+            }}
+          >
+            {isLoading ? "⚡ ANALYZING..." : isDrillOpen ? "▲ HIDE ANALYSIS" : "▼ AI DRILL-DOWN"}
+          </button>
+        </div>
+
+        {/* Collapsible Panel */}
+        {isDrillOpen && explanation && (
+          <div
+            style={{
+              padding: "20px 24px",
+              background: "rgba(5, 5, 8, 0.4)",
+              borderTop: "1px dashed rgba(255, 255, 255, 0.08)",
+              fontFamily: "'Space Grotesk', system-ui, sans-serif",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF00FF", marginBottom: 4 }}>
+                // Day One Implementation
+              </div>
+              <p style={{ fontSize: 13, color: "#E4E4E7", margin: 0, lineHeight: 1.6 }}>
+                {explanation.dayOne}
+              </p>
+            </div>
+            <div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#00FFFF", marginBottom: 4 }}>
+                // Deferred Scope
+              </div>
+              <p style={{ fontSize: 13, color: "#A1A1AA", margin: 0, lineHeight: 1.6 }}>
+                {explanation.defer}
+              </p>
+            </div>
+            <div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF2D2D", marginBottom: 4 }}>
+                // Technical Risks & Warning
+              </div>
+              <p style={{ fontSize: 13, color: "#FFAA00", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
+                {explanation.watchFor}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ScopeSledgehammer() {
   // ── Pendo track helper ──────────────────────────────────
   const trackPendo = (name: string, props?: Record<string, unknown>) => {
@@ -272,7 +459,8 @@ export default function ScopeSledgehammer() {
   const [drillId,      setDrillId]      = useState<string | null>(null);
   const [drillData,    setDrillData]    = useState<Record<string, string>>({});
   const [drillLoading, setDrillLoading] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"idle" | "shaking" | "loading" | "revealed">("idle");
+  const [killCount, setKillCount] = useState(0);
+  const [phase, setPhase] = useState<"idle" | "shaking" | "loading" | "revealed" | "compare_loading" | "compare_revealed">("idle");
   const [inputValue, setInputValue] = useState("");
   const [msgIndex, setMsgIndex] = useState(0);
   const [flash, setFlash] = useState(false);
@@ -297,6 +485,15 @@ export default function ScopeSledgehammer() {
   const [telemetryLogs, setTelemetryLogs] = useState<string[]>([]);
   const [debris, setDebris] = useState<{ id: number; text: string; x: number; y: number }[]>([]);
   const [animatedReduction, setAnimatedReduction] = useState(0);
+
+  interface CompareResults {
+    gentle: { tickets: Ticket[]; error: string | null };
+    ruthless: { tickets: Ticket[]; error: string | null };
+    nuclear: { tickets: Ticket[]; error: string | null };
+  }
+  const [compareResults, setCompareResults] = useState<CompareResults | null>(null);
+  const [compareBtnHovered, setCompareBtnHovered] = useState(false);
+  const [compareBtnPressed, setCompareBtnPressed] = useState(false);
 
   const logEvent = (msg: string) => {
     setTelemetryLogs(prev => [...prev, `[SYSTEM]: ${msg}`]);
@@ -339,6 +536,34 @@ export default function ScopeSledgehammer() {
       return () => clearInterval(timer);
     }
   }, [phase, tickets, brutalityLevel, inputValue.length]);
+
+  // Features Destroyed animated counter
+  useEffect(() => {
+    if (phase !== "loading") {
+      setKillCount(0);
+      return;
+    }
+
+    const targetVal = Math.floor(Math.random() * (32 - 14 + 1)) + 14;
+    const duration = 3000;
+    const intervalTime = 50;
+    const totalSteps = duration / intervalTime;
+    let currentStep = 0;
+
+    const interval = setInterval(() => {
+      currentStep++;
+      if (currentStep >= totalSteps) {
+        setKillCount(targetVal);
+        clearInterval(interval);
+      } else {
+        setKillCount(Math.round((targetVal * currentStep) / totalSteps));
+      }
+    }, intervalTime);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [phase]);
 
   const handleExportCSV = () => {
     if (tickets.length === 0) return;
@@ -510,6 +735,122 @@ export default function ScopeSledgehammer() {
     }, 560);
   };
 
+  const handleCompareAll = async () => {
+    if (phase === "shaking" || phase === "loading" || phase === "compare_loading") {
+      logEvent("Execution throttle active. Duplicate request blocked.");
+      return;
+    }
+    if (!inputValue.trim()) {
+      logEvent("Validation failure: Empty product idea input.");
+      setInputShake(true);
+      if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+      shakeTimeoutRef.current = setTimeout(() => setInputShake(false), 500);
+      return;
+    }
+
+    logEvent("Initiating parallel comparison mode for all brutality levels.");
+    trackPendo("compare_all_triggered", { inputLength: inputValue.length });
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setCompareResults(null);
+    setFlash(true);
+    setPhase("compare_loading");
+
+    if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+    shakeTimeoutRef.current = setTimeout(() => setFlash(false), 280);
+
+    const levels: BrutalityLevel[] = ["gentle", "ruthless", "nuclear"];
+
+    try {
+      const fetchPromises = levels.map(async (level) => {
+        const response = await fetch("/api/sledgehammer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: inputValue, brutality: level }),
+          signal: controller.signal,
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || `${level} mode failed`);
+        }
+
+        if (!data.tickets || !Array.isArray(data.tickets)) {
+          throw new Error(`${level} mode returned invalid data`);
+        }
+
+        return { level, tickets: data.tickets };
+      });
+
+      const results = await Promise.allSettled(fetchPromises);
+
+      const mappedResults: CompareResults = {
+        gentle: { tickets: [], error: null },
+        ruthless: { tickets: [], error: null },
+        nuclear: { tickets: [], error: null },
+      };
+
+      results.forEach((res, index) => {
+        const level = levels[index];
+        if (res.status === "fulfilled") {
+          const priorityLabels = level === "gentle" 
+            ? ["CRITICAL", "HIGH", "MEDIUM", "LOW", "OPTIONAL"]
+            : level === "nuclear"
+            ? ["CRITICAL"]
+            : ["CRITICAL", "HIGH", "MEDIUM"];
+          const accentColors = level === "gentle" 
+            ? ["#00FFFF", "#FF00FF", "#00FFFF"] 
+            : level === "nuclear" 
+            ? ["#FF2D2D"] 
+            : ["#FF00FF", "#00FFFF", "#FF00FF"];
+
+          mappedResults[level].tickets = res.value.tickets.map((t: any, i: number) => ({
+            id: `COMP-${level.substring(0, 3).toUpperCase()}-${String(i + 1).padStart(3, "0")}`,
+            priority: priorityLabels[i] || "HIGH",
+            title: t.title ?? "Untitled Ticket",
+            scope: t.scope ?? "",
+            why: t.whyCut ?? t.why ?? "",
+            accent: accentColors[i % accentColors.length],
+          }));
+          logEvent(`${level.toUpperCase()} completions resolved with ${res.value.tickets.length} tickets.`);
+        } else {
+          const errorMsg = res.reason instanceof Error ? res.reason.message : "Fetch failed";
+          mappedResults[level].error = errorMsg;
+          logEvent(`Parallel comparison [${level}] failed: ${errorMsg}`);
+        }
+      });
+
+      // Check if all failed
+      const allFailed = results.every(res => res.status === "rejected");
+      if (allFailed) {
+        throw new Error("All parallel completion modes failed.");
+      }
+
+      setCompareResults(mappedResults);
+      setPhase("compare_revealed");
+      abortControllerRef.current = null;
+      trackPendo("compare_all_revealed", {
+        gentleCount: mappedResults.gentle.tickets.length,
+        ruthlessCount: mappedResults.ruthless.tickets.length,
+        nuclearCount: mappedResults.nuclear.tickets.length,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        logEvent("Active comparison fetch aborted by user.");
+        return;
+      }
+      const errMsg = err instanceof Error ? err.message : "Something went wrong.";
+      logEvent(`Critical comparison failure: ${errMsg}`);
+      setError(errMsg);
+      setPhase("idle");
+    }
+  };
+
   const handleReset = () => {
     trackPendo("reset_triggered");
     if (abortControllerRef.current) {
@@ -532,6 +873,7 @@ export default function ScopeSledgehammer() {
     setError(null);
     setTicketsStale(false);
     setAnimatedReduction(0);
+    setCompareResults(null);
     logEvent("Repository mapping reset. Cache cleared.");
   };
 
@@ -836,6 +1178,23 @@ export default function ScopeSledgehammer() {
         .brutality-btn:active {
           transform: translateY(1px);
         }
+        .compare-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 24px;
+        }
+        @media (max-width: 768px) {
+          .compare-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @keyframes skeletonPulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 0.3; }
+        }
+        .skeleton-pulse {
+          animation: skeletonPulse 1.5s ease-in-out infinite;
+        }
       `}</style>
 
       {/* Flash overlay */}
@@ -1039,9 +1398,10 @@ export default function ScopeSledgehammer() {
           style={{
             position: "relative",
             zIndex: 10,
-            maxWidth: 680,
+            maxWidth: phase === "compare_loading" || phase === "compare_revealed" ? 1200 : 680,
             margin: "0 auto",
             padding: "72px 24px 96px",
+            transition: "max-width 0.4s ease-in-out",
           }}
         >
 
@@ -1346,6 +1706,54 @@ export default function ScopeSledgehammer() {
                     pointerEvents: "none",
                   }}
                 />
+              </div>
+
+              {/* ── COMPARE ALL MODES ACTION ── */}
+              <div style={{ marginTop: 4 }}>
+                <button
+                  onClick={handleCompareAll}
+                  onMouseEnter={() => !isInputEmpty && setCompareBtnHovered(true)}
+                  onMouseLeave={() => { setCompareBtnHovered(false); setCompareBtnPressed(false); }}
+                  onMouseDown={() => !isInputEmpty && setCompareBtnPressed(true)}
+                  onMouseUp={() => setCompareBtnPressed(false)}
+                  disabled={isInputEmpty}
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    overflow: "hidden",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: isInputEmpty ? "#71717A" : "#00FFFF",
+                    border: isInputEmpty ? "1px solid rgba(255,255,255,0.08)" : "1px solid #00FFFF",
+                    cursor: isInputEmpty ? "not-allowed" : "pointer",
+                    outline: "none",
+                    padding: "15px 30px",
+                    background: isInputEmpty
+                      ? "rgba(255,255,255,0.02)"
+                      : "rgba(0, 255, 255, 0.04)",
+                    boxShadow: isInputEmpty
+                      ? "none"
+                      : compareBtnPressed
+                      ? "1px 1px 0 #FF00FF"
+                      : compareBtnHovered
+                      ? "4px 4px 0 #FF00FF, 0 0 20px rgba(0,255,255,0.15)"
+                      : "3px 3px 0 #FF00FF",
+                    transform: isInputEmpty
+                      ? "none"
+                      : compareBtnPressed
+                      ? "translate(2px, 2px)"
+                      : compareBtnHovered
+                      ? "translate(-1px, -1px)"
+                      : "none",
+                    transition: "box-shadow 0.15s, transform 0.1s, background 0.2s, color 0.2s",
+                    fontFamily: "'JetBrains Mono', monospace",
+                    opacity: isInputEmpty ? 0.5 : 1,
+                  }}
+                >
+                  ⚙ Compare All Brutality Modes
+                </button>
               </div>
 
               {/* ── BRUTALITY SELECTOR ── */}
@@ -1655,6 +2063,16 @@ export default function ScopeSledgehammer() {
                 </button>
               </div>
 
+              {/* Kill Counter Display */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", marginBottom: 28, textAlign: "center" }}>
+                <span style={{ fontSize: "4rem", fontWeight: 500, color: currentMeta.color, textShadow: `0 0 18px ${currentMeta.color}44`, lineHeight: 1 }}>
+                  {killCount}
+                </span>
+                <span style={{ fontSize: 13, color: "#71717A", textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 4 }}>
+                  Features Destroyed
+                </span>
+              </div>
+
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {LOADING_MESSAGES.map((msg, i) => {
                   const isPast = i < msgIndex % LOADING_MESSAGES.length;
@@ -1724,6 +2142,301 @@ export default function ScopeSledgehammer() {
                 >
                   Calling Groq API — brutality: {brutalityLevel}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── COMPARE LOADING ── */}
+          {phase === "compare_loading" && (
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(0,0,0,0.72)",
+                padding: "28px 28px",
+                boxShadow: "0 0 40px rgba(255,0,255,0.07)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Terminal size={14} style={{ color: "#FF00FF" }} />
+                  <span
+                    style={{
+                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                      fontSize: 11,
+                      letterSpacing: "0.3em",
+                      textTransform: "uppercase",
+                      color: "#FF00FF",
+                    }}
+                  >
+                    sledgehammer:~$ comparing all modes
+                  </span>
+                  <span
+                    className="scope-blink"
+                    style={{
+                      color: "#FF00FF",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 14,
+                      marginLeft: 2,
+                    }}
+                  >
+                    █
+                  </span>
+                </div>
+                <button
+                  onClick={handleReset}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "#52525B",
+                    background: "none",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    transition: "all 0.18s",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.18)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#52525B";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
+                  }}
+                >
+                  <RotateCcw size={11} />
+                  Reset
+                </button>
+              </div>
+
+              {/* Shared Loading Skeleton Grid */}
+              <div className="compare-grid">
+                <SkeletonColumn modeName="Gentle Cut" accentColor="#00FFFF" cardCount={2} />
+                <SkeletonColumn modeName="Ruthless Slash" accentColor="#FF00FF" cardCount={2} />
+                <SkeletonColumn modeName="Nuclear" accentColor="#FF2D2D" cardCount={2} />
+              </div>
+
+              <div
+                style={{
+                  marginTop: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  paddingTop: 20,
+                  borderTop: "1px solid rgba(255,255,255,0.05)",
+                }}
+              >
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "#FF00FF",
+                    animation: "blink 1s ease-in-out infinite",
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    color: "#3F3F46",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Firing parallel Groq completion calls...
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── COMPARE REVEALED ── */}
+          {phase === "compare_revealed" && compareResults && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+              {/* Header block with Reset button */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 16 }}>
+                <div>
+                  <div
+                    style={{
+                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color: "#3F3F46",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {"// parallel scope comparison"}
+                  </div>
+                  <h2 style={{ fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: "-0.02em", margin: 0 }}>
+                    Brutality Comparison Matrix
+                  </h2>
+                </div>
+                <button
+                  onClick={handleReset}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "#A1A1AA",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    padding: "8px 14px",
+                    cursor: "pointer",
+                    transition: "all 0.18s",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#00FFFF";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#00FFFF";
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(0,255,255,0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.08)";
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                  }}
+                >
+                  <RotateCcw size={11} />
+                  Reset Engine
+                </button>
+              </div>
+
+              {/* 3 Columns Grid */}
+              <div className="compare-grid">
+                {/* Gentle Column */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {/* Badge */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "10px 14px",
+                      border: "1px solid rgba(0,255,255,0.22)",
+                      background: "rgba(0,255,255,0.04)",
+                    }}
+                  >
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00FFFF", boxShadow: "0 0 8px #00FFFF" }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#00FFFF", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                      Gentle Cut
+                    </span>
+                  </div>
+                  {/* Content */}
+                  {compareResults.gentle.error ? (
+                    <div style={{ border: "1px solid rgba(255,85,85,0.2)", background: "rgba(255,85,85,0.04)", padding: 16, fontSize: 13, color: "#FCA5A5" }}>
+                      {compareResults.gentle.error}
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      {compareResults.gentle.tickets.map((t, idx) => (
+                        <TicketWithDrillDown
+                          key={t.id ?? idx}
+                          ticket={t}
+                          index={idx}
+                          copied={copied}
+                          onCopy={handleCopy}
+                          drillId={drillId}
+                          drillLoading={drillLoading}
+                          drillData={drillData}
+                          onDrillDown={handleDrillDown}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Ruthless Column */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {/* Badge */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "10px 14px",
+                      border: "1px solid rgba(255,0,255,0.22)",
+                      background: "rgba(255,0,255,0.04)",
+                    }}
+                  >
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF00FF", boxShadow: "0 0 8px #FF00FF" }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#FF00FF", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                      Ruthless Slash
+                    </span>
+                  </div>
+                  {/* Content */}
+                  {compareResults.ruthless.error ? (
+                    <div style={{ border: "1px solid rgba(255,85,85,0.2)", background: "rgba(255,85,85,0.04)", padding: 16, fontSize: 13, color: "#FCA5A5" }}>
+                      {compareResults.ruthless.error}
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      {compareResults.ruthless.tickets.map((t, idx) => (
+                        <TicketWithDrillDown
+                          key={t.id ?? idx}
+                          ticket={t}
+                          index={idx}
+                          copied={copied}
+                          onCopy={handleCopy}
+                          drillId={drillId}
+                          drillLoading={drillLoading}
+                          drillData={drillData}
+                          onDrillDown={handleDrillDown}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Nuclear Column */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {/* Badge */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "10px 14px",
+                      border: "1px solid rgba(255,45,45,0.22)",
+                      background: "rgba(255,45,45,0.04)",
+                    }}
+                  >
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF2D2D", boxShadow: "0 0 8px #FF2D2D" }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#FF2D2D", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                      Nuclear Core
+                    </span>
+                  </div>
+                  {/* Content */}
+                  {compareResults.nuclear.error ? (
+                    <div style={{ border: "1px solid rgba(255,85,85,0.2)", background: "rgba(255,85,85,0.04)", padding: 16, fontSize: 13, color: "#FCA5A5" }}>
+                      {compareResults.nuclear.error}
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      {compareResults.nuclear.tickets.map((t, idx) => (
+                        <TicketWithDrillDown
+                          key={t.id ?? idx}
+                          ticket={t}
+                          index={idx}
+                          copied={copied}
+                          onCopy={handleCopy}
+                          drillId={drillId}
+                          drillLoading={drillLoading}
+                          drillData={drillData}
+                          onDrillDown={handleDrillDown}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -2055,115 +2768,19 @@ export default function ScopeSledgehammer() {
                   ...(ticketsStale ? { pointerEvents: "none" as const } : {}),
                 }}
               >
-                {tickets.map((ticket, i) => {
-                  const isDrillOpen = drillId === ticket.id;
-                  const explanation = drillData[ticket.id] ? JSON.parse(drillData[ticket.id]) : null;
-                  const isLoading = drillLoading === ticket.id;
-
-                  return (
-                    <div
-                      key={ticket.id ?? i}
-                      className="scope-card-in"
-                      style={{
-                        animationDelay: `${i * 180}ms`,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 0,
-                        marginBottom: 16,
-                      }}
-                    >
-                      <TicketCard
-                        ticket={ticket}
-                        index={i}
-                        copied={copied}
-                        onCopy={handleCopy}
-                      />
-                      
-                      {/* Action Bar & Collapsible Panel */}
-                      <div
-                        style={{
-                          background: "rgba(10,10,12,0.85)",
-                          border: "1px solid rgba(255, 255, 255, 0.07)",
-                          borderTop: "none",
-                          boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
-                          display: "flex",
-                          flexDirection: "column",
-                          marginTop: -1, // overlap the border of TicketCard
-                        }}
-                      >
-                        <div
-                          style={{
-                            padding: "12px 24px",
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            background: "rgba(0, 0, 0, 0.25)",
-                          }}
-                        >
-                          <button
-                            onClick={() => handleDrillDown(ticket)}
-                            disabled={drillLoading !== null && !isLoading}
-                            style={{
-                              fontFamily: "'JetBrains Mono', monospace",
-                              fontSize: 10,
-                              fontWeight: 700,
-                              letterSpacing: "0.12em",
-                              textTransform: "uppercase",
-                              color: isDrillOpen ? "#FF00FF" : "#00FFFF",
-                              background: "none",
-                              border: `1px solid ${isDrillOpen ? "#FF00FF" : "rgba(0, 255, 255, 0.3)"}`,
-                              padding: "5px 12px",
-                              cursor: (drillLoading !== null && !isLoading) ? "not-allowed" : "pointer",
-                              transition: "all 0.2s",
-                              opacity: (drillLoading !== null && !isLoading) ? 0.5 : 1,
-                            }}
-                          >
-                            {isLoading ? "⚡ ANALYZING..." : isDrillOpen ? "▲ HIDE ANALYSIS" : "▼ AI DRILL-DOWN"}
-                          </button>
-                        </div>
-
-                        {/* Collapsible Panel */}
-                        {isDrillOpen && explanation && (
-                          <div
-                            style={{
-                              padding: "20px 24px",
-                              background: "rgba(5, 5, 8, 0.4)",
-                              borderTop: "1px dashed rgba(255, 255, 255, 0.08)",
-                              fontFamily: "'Space Grotesk', system-ui, sans-serif",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 16,
-                            }}
-                          >
-                            <div>
-                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF00FF", marginBottom: 4 }}>
-                                // Day One Implementation
-                              </div>
-                              <p style={{ fontSize: 13, color: "#E4E4E7", margin: 0, lineHeight: 1.6 }}>
-                                {explanation.dayOne}
-                              </p>
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#00FFFF", marginBottom: 4 }}>
-                                // Deferred Scope
-                              </div>
-                              <p style={{ fontSize: 13, color: "#A1A1AA", margin: 0, lineHeight: 1.6 }}>
-                                {explanation.defer}
-                              </p>
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF2D2D", marginBottom: 4 }}>
-                                // Technical Risks & Warning
-                              </div>
-                              <p style={{ fontSize: 13, color: "#FFAA00", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
-                                {explanation.watchFor}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {tickets.map((ticket, i) => (
+                  <TicketWithDrillDown
+                    key={ticket.id ?? i}
+                    ticket={ticket}
+                    index={i}
+                    copied={copied}
+                    onCopy={handleCopy}
+                    drillId={drillId}
+                    drillLoading={drillLoading}
+                    drillData={drillData}
+                    onDrillDown={handleDrillDown}
+                  />
+                ))}
               </div>
 
               <p
@@ -2188,7 +2805,7 @@ export default function ScopeSledgehammer() {
           {/* ── NOVUS TELEMETRY DASHBOARD ── */}
           <NovusDashboard
             inputLength={inputValue.length}
-            ticketCount={tickets.length}
+            ticketCount={phase === "compare_revealed" && compareResults ? (compareResults.gentle.tickets.length + compareResults.ruthless.tickets.length + compareResults.nuclear.tickets.length) : tickets.length}
             phase={phase}
             brutalityLevel={brutalityLevel}
             events={telemetryLogs}
