@@ -37,8 +37,8 @@
   --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
   --backdrop-blur: none;
   --glass-bg-card: #0d0d0d;
-  --glass-bg-panel: #0d0d0d;
-  --glass-border: rgba(0, 255, 0, 0.3);
+  --glass-bg-panel: #000000;
+  --glass-border: rgba(0, 255, 0, 0.25);
   --scanline-opacity: 0.12;
   --card-border-width: 0.5px;
   
@@ -60,15 +60,96 @@
 }
 
 /* Scoped Terminal Overrides */
-[data-theme="terminal"] body {
+html[data-theme="terminal"],
+html[data-theme="terminal"] body,
+html[data-theme="terminal"] .app-wrapper,
+[data-theme="terminal"],
+[data-theme="terminal"] body,
+[data-theme="terminal"] .app-wrapper {
+  background: #000000 !important;
   background-color: #000000 !important;
+  background-image: none !important;
+}
+
+[data-theme="terminal"] .geometric-bg,
+[data-theme="terminal"] .ambient-glows,
+[data-theme="terminal"] .noise-dots {
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+}
+
+[data-theme="terminal"] .scanline-overlay {
   background-image: repeating-linear-gradient(
     0deg,
-    rgba(0, 255, 0, 0.03) 0px,
-    rgba(0, 255, 0, 0.03) 1px,
+    rgba(0, 255, 0, 0.04) 0px,
+    rgba(0, 255, 0, 0.04) 1px,
     transparent 1px,
     transparent 2px
   ) !important;
+  opacity: 1 !important;
+}
+
+/* Card backgrounds in terminal mode: #0d0d0d with border 0.5px solid rgba(0,255,0,0.25) */
+[data-theme="terminal"] .ticket-card {
+  background: #0d0d0d !important;
+  border-top: 0.5px solid rgba(0, 255, 0, 0.25) !important;
+  border-right: 0.5px solid rgba(0, 255, 0, 0.25) !important;
+  border-bottom: 0.5px solid rgba(0, 255, 0, 0.25) !important;
+  border-left: 4px solid #00FF00 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+[data-theme="terminal"] .ticket-action-panel {
+  background: #0d0d0d !important;
+  border: 0.5px solid rgba(0, 255, 0, 0.25) !important;
+  border-top: none !important;
+  box-shadow: none !important;
+}
+
+[data-theme="terminal"] .drill-down-btn {
+  color: #00FF00 !important;
+  border-color: rgba(0, 255, 0, 0.5) !important;
+  background: transparent !important;
+}
+
+[data-theme="terminal"] .drill-down-btn:hover {
+  background: rgba(0, 255, 0, 0.05) !important;
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.2) !important;
+}
+
+/* Sidebar and Panel Overrides in Terminal Mode */
+[data-theme="terminal"] .history-panel,
+[data-theme="terminal"] .history-backdrop,
+[data-theme="terminal"] .pendo-debugger-panel,
+[data-theme="terminal"] [class*="pendo"] {
+  background-color: #000000 !important;
+  background: #000000 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-theme="terminal"] .history-panel {
+  border-right: 0.5px solid rgba(0, 255, 0, 0.25) !important;
+}
+
+@media (max-width: 768px) {
+  [data-theme="terminal"] .history-panel {
+    border-right: none !important;
+    border-top: 0.5px solid rgba(0, 255, 0, 0.25) !important;
+  }
+}
+
+[data-theme="terminal"] .history-entry {
+  border: 0.5px solid rgba(0, 255, 0, 0.25) !important;
+  background: transparent !important;
+}
+
+[data-theme="terminal"] .history-entry:hover {
+  border-color: #00FF00 !important;
+  background: rgba(0, 255, 0, 0.05) !important;
 }
 
 [data-theme="terminal"] body::before {

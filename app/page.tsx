@@ -76,6 +76,7 @@ function TicketCard({
 
   return (
     <div
+      className="ticket-card"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -395,6 +396,7 @@ function TicketWithDrillDown({
       
       {/* Action Bar & Collapsible Panel */}
       <div
+        className="ticket-action-panel"
         style={{
           background: "var(--glass-bg-card)",
           border: "var(--card-border-width, 1px) solid var(--glass-border)",
@@ -414,6 +416,7 @@ function TicketWithDrillDown({
           }}
         >
           <button
+            className="drill-down-btn"
             onClick={() => onDrillDown(ticket)}
             disabled={drillLoading !== null && !isLoading}
             style={{
@@ -1485,6 +1488,7 @@ export default function ScopeSledgehammer() {
               return (
                 <button
                   key={idx}
+                  className="history-entry"
                   onClick={() => {
                     setInputValue(entry.idea);
                     setBrutalityLevel(entry.brutality);
@@ -1595,10 +1599,11 @@ export default function ScopeSledgehammer() {
           position: "relative",
           overflowX: "hidden",
         }}
-        className={phase === "shaking" ? "scope-quaking" : ""}
+        className={`app-wrapper ${phase === "shaking" ? "scope-quaking" : ""}`}
       >
         {/* Faint Geometric Network Pattern */}
         <div
+          className="geometric-bg"
           style={{
             position: "absolute",
             inset: 0,
@@ -1734,6 +1739,7 @@ export default function ScopeSledgehammer() {
 
         {/* Scanlines */}
         <div
+          className="scanline-overlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -1746,6 +1752,7 @@ export default function ScopeSledgehammer() {
         />
         {/* Ambient glows */}
         <div
+          className="ambient-glows"
           style={{
             position: "fixed",
             inset: 0,
@@ -1757,6 +1764,7 @@ export default function ScopeSledgehammer() {
         />
         {/* Noise dots */}
         <div
+          className="noise-dots"
           style={{
             position: "fixed",
             inset: 0,

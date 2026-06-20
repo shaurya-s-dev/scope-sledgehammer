@@ -39,6 +39,7 @@ export default function PendoDebug() {
 
   return (
     <div
+      className="pendo-debugger-panel"
       style={{
         position: "fixed",
         bottom: 20,
