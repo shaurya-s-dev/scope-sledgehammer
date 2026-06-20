@@ -204,7 +204,7 @@ function TicketCard({
                 fontSize: 9.5,
                 letterSpacing: "0.2em",
                 textTransform: "uppercase",
-                color: "#3F3F46",
+                color: "#a1a1aa",
                 marginBottom: 4,
               }}
             >
@@ -244,13 +244,13 @@ function TicketCard({
                 fontSize: 9.5,
                 letterSpacing: "0.2em",
                 textTransform: "uppercase",
-                color: "#3F3F46",
+                color: "#a1a1aa",
                 marginBottom: 4,
               }}
             >
               Ruthless Scope
             </div>
-            <p style={{ fontSize: 13.5, color: "#D4D4D8", lineHeight: 1.65, margin: 0 }}>
+            <p style={{ fontSize: 13.5, color: "#e0e0e0", lineHeight: 1.65, margin: 0 }}>
               {ticket.scope}
             </p>
           </div>
@@ -268,7 +268,7 @@ function TicketCard({
                 fontSize: 9.5,
                 letterSpacing: "0.2em",
                 textTransform: "uppercase",
-                color: "#3F3F46",
+                color: "#a1a1aa",
                 marginBottom: 4,
               }}
             >
@@ -278,7 +278,7 @@ function TicketCard({
               title={ticket.why}
               style={{
                 fontSize: 13,
-                color: "#71717A",
+                color: "#e0e0e0",
                 lineHeight: 1.65,
                 fontStyle: "italic",
                 margin: 0,
@@ -351,6 +351,107 @@ function SkeletonColumn({ modeName, accentColor, cardCount = 3 }: { modeName: st
       ))}
     </div>
   );
+}
+
+interface SafeAnalysisRenderProps {
+  explanation: any;
+}
+
+function SafeAnalysisRender({ explanation }: SafeAnalysisRenderProps) {
+  try {
+    if (!explanation) {
+      return (
+        <div style={{
+          padding: "12px",
+          background: "rgba(255, 255, 255, 0.05)",
+          border: "1px dashed rgba(255, 255, 255, 0.2)",
+          color: "#E4E4E7",
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: "12px",
+          textAlign: "center"
+        }}>
+          No analysis data.
+        </div>
+      );
+    }
+
+    let dayOneText = "";
+    if (explanation.dayOne !== undefined && explanation.dayOne !== null) {
+      if (typeof explanation.dayOne === "object") {
+        const issue = explanation.dayOne.issue || "";
+        const impact = explanation.dayOne.impact || "";
+        dayOneText = [issue, impact].filter(Boolean).join(" - ");
+        if (!dayOneText) {
+          dayOneText = JSON.stringify(explanation.dayOne);
+        }
+      } else {
+        dayOneText = String(explanation.dayOne);
+      }
+    }
+
+    let deferText = "";
+    if (explanation.defer !== undefined && explanation.defer !== null) {
+      if (typeof explanation.defer === "object") {
+        const opt = explanation.defer.customizationOption || "";
+        deferText = opt || JSON.stringify(explanation.defer);
+      } else {
+        deferText = String(explanation.defer);
+      }
+    }
+
+    let watchForText = "";
+    if (explanation.watchFor !== undefined && explanation.watchFor !== null) {
+      if (typeof explanation.watchFor === "object") {
+        watchForText = JSON.stringify(explanation.watchFor);
+      } else {
+        watchForText = String(explanation.watchFor);
+      }
+    }
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF00FF", marginBottom: 4 }}>
+            // Day One Implementation
+          </div>
+          <p style={{ fontSize: 13, color: "#E4E4E7", margin: 0, lineHeight: 1.6 }}>
+            {dayOneText}
+          </p>
+        </div>
+        <div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#00FFFF", marginBottom: 4 }}>
+            // Deferred Scope
+          </div>
+          <p style={{ fontSize: 13, color: "#A1A1AA", margin: 0, lineHeight: 1.6 }}>
+            {deferText}
+          </p>
+        </div>
+        <div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF2D2D", marginBottom: 4 }}>
+            // Technical Risks & Warning
+          </div>
+          <p style={{ fontSize: 13, color: "#FFAA00", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
+            {watchForText}
+          </p>
+        </div>
+      </div>
+    );
+  } catch (err) {
+    console.error("Error rendering AI drill-down analysis:", err);
+    return (
+      <div style={{
+        padding: "12px",
+        background: "rgba(255, 45, 45, 0.1)",
+        border: "1px solid #FF2D2D",
+        color: "#FF5555",
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: "12px",
+        textAlign: "center"
+      }}>
+        Analysis unavailable.
+      </div>
+    );
+  }
 }
 
 function TicketWithDrillDown({
@@ -451,30 +552,7 @@ function TicketWithDrillDown({
               gap: 16,
             }}
           >
-            <div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF00FF", marginBottom: 4 }}>
-                // Day One Implementation
-              </div>
-              <p style={{ fontSize: 13, color: "#E4E4E7", margin: 0, lineHeight: 1.6 }}>
-                {explanation.dayOne}
-              </p>
-            </div>
-            <div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#00FFFF", marginBottom: 4 }}>
-                // Deferred Scope
-              </div>
-              <p style={{ fontSize: 13, color: "#A1A1AA", margin: 0, lineHeight: 1.6 }}>
-                {explanation.defer}
-              </p>
-            </div>
-            <div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF2D2D", marginBottom: 4 }}>
-                // Technical Risks & Warning
-              </div>
-              <p style={{ fontSize: 13, color: "#FFAA00", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
-                {explanation.watchFor}
-              </p>
-            </div>
+            <SafeAnalysisRender explanation={explanation} />
           </div>
         )}
       </div>
@@ -1557,7 +1635,7 @@ export default function ScopeSledgehammer() {
                     (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
                     (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
                   }}
                 >
@@ -1860,7 +1938,7 @@ export default function ScopeSledgehammer() {
                 (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
                 (e.currentTarget as HTMLButtonElement).style.background = "rgba(10, 10, 12, 0.6)";
               }}
             >
@@ -1892,7 +1970,7 @@ export default function ScopeSledgehammer() {
                 (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
                 (e.currentTarget as HTMLButtonElement).style.background = "rgba(10, 10, 12, 0.6)";
               }}
             >
@@ -2111,7 +2189,7 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.22em",
                       textTransform: "uppercase",
-                      color: "#3F3F46",
+                      color: "#a1a1aa",
                     }}
                   >
                     {"// your bloated product idea"}
@@ -2142,7 +2220,7 @@ export default function ScopeSledgehammer() {
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
                       (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
                     }}
                   >
@@ -2273,7 +2351,7 @@ export default function ScopeSledgehammer() {
                     fontSize: 10,
                     letterSpacing: "0.22em",
                     textTransform: "uppercase",
-                    color: "#3F3F46",
+                    color: "#a1a1aa",
                     marginBottom: 10,
                   }}
                 >
@@ -2297,8 +2375,8 @@ export default function ScopeSledgehammer() {
                           background: isActive ? meta.bgColor : "rgba(9,9,11,0.6)",
                           border: "none",
                           borderRight: idx < 2 ? `1px solid ${isActive ? `${meta.color}44` : "rgba(255,255,255,0.05)"}` : "none",
-                          borderBottom: isActive ? `2.5px solid ${meta.color}` : "2.5px solid transparent",
-                          color: isActive ? meta.color : "#3F3F46",
+                          borderBottom: isActive ? `3px solid ${meta.color}` : "3px solid transparent",
+                          color: isActive ? meta.color : "rgba(255, 255, 255, 0.5)",
                           fontWeight: 800,
                           fontFamily: "'JetBrains Mono', monospace",
                           fontSize: 10,
@@ -2630,7 +2708,7 @@ export default function ScopeSledgehammer() {
                   style={{
                     fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 10,
-                    color: "#3F3F46",
+                    color: "#a1a1aa",
                     letterSpacing: "0.15em",
                     textTransform: "uppercase",
                   }}
@@ -2739,7 +2817,7 @@ export default function ScopeSledgehammer() {
                   style={{
                     fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 10,
-                    color: "#3F3F46",
+                    color: "#a1a1aa",
                     letterSpacing: "0.15em",
                     textTransform: "uppercase",
                   }}
@@ -2762,7 +2840,7 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.22em",
                       textTransform: "uppercase",
-                      color: "#3F3F46",
+                      color: "#a1a1aa",
                       marginBottom: 6,
                     }}
                   >
@@ -2782,9 +2860,9 @@ export default function ScopeSledgehammer() {
                     fontSize: 10,
                     letterSpacing: "0.2em",
                     textTransform: "uppercase",
-                    color: "#A1A1AA",
+                    color: "#ffffff",
                     background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255, 255, 255, 0.6)",
                     padding: "8px 14px",
                     cursor: "pointer",
                     transition: "all 0.18s",
@@ -2795,8 +2873,8 @@ export default function ScopeSledgehammer() {
                     (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px var(--gentle-bg)";
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.08)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255, 255, 255, 0.6)";
                     (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
                   }}
                 >
@@ -2959,7 +3037,7 @@ export default function ScopeSledgehammer() {
                     fontSize: 10,
                     letterSpacing: "0.22em",
                     textTransform: "uppercase",
-                    color: "#3F3F46",
+                    color: "#a1a1aa",
                     marginBottom: 10,
                   }}
                 >
@@ -2981,8 +3059,8 @@ export default function ScopeSledgehammer() {
                           background: isActive ? meta.bgColor : "rgba(9,9,11,0.6)",
                           border: "none",
                           borderRight: idx < 2 ? `1px solid ${isActive ? `${meta.color}44` : "rgba(255,255,255,0.05)"}` : "none",
-                          borderBottom: isActive ? `2.5px solid ${meta.color}` : "2.5px solid transparent",
-                          color: isActive ? meta.color : "#3F3F46",
+                          borderBottom: isActive ? `3px solid ${meta.color}` : "3px solid transparent",
+                          color: isActive ? meta.color : "rgba(255, 255, 255, 0.5)",
                           fontWeight: 800,
                           fontFamily: "'JetBrains Mono', monospace",
                           fontSize: 10,
@@ -3122,7 +3200,7 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.22em",
                       textTransform: "uppercase",
-                      color: "#3F3F46",
+                      color: "#a1a1aa",
                       marginBottom: 6,
                     }}
                   >
@@ -3131,8 +3209,8 @@ export default function ScopeSledgehammer() {
                   <h2
                     style={{
                       fontWeight: 800,
-                      fontSize: 20,
-                      color: "#fff",
+                      fontSize: "2.25rem",
+                      color: "#ffffff",
                       letterSpacing: "-0.02em",
                       display: "flex",
                       alignItems: "center",
@@ -3149,7 +3227,10 @@ export default function ScopeSledgehammer() {
                           fontSize: 12,
                           fontWeight: 700,
                           color: "var(--system-accent)",
-                          textShadow: "0 0 8px var(--gentle-bg)",
+                          padding: "4px 10px",
+                          background: "rgba(0, 0, 0, 0.6)",
+                          border: "1px solid var(--system-accent)",
+                          borderRadius: "4px",
                           letterSpacing: "0.05em",
                         }}
                       >
@@ -3172,7 +3253,7 @@ export default function ScopeSledgehammer() {
                       textTransform: "uppercase",
                       color: "var(--system-accent)",
                       background: "none",
-                      border: "1px solid var(--glass-border)",
+                      border: "1px solid var(--system-accent)",
                       padding: "8px 12px",
                       cursor: "pointer",
                       transition: "all 0.18s",
@@ -3183,7 +3264,7 @@ export default function ScopeSledgehammer() {
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.background = "none";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
                     }}
                   >
                     Deploy MVP
@@ -3200,20 +3281,20 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.2em",
                       textTransform: "uppercase",
-                      color: "#52525B",
+                      color: "rgba(255, 255, 255, 0.8)",
                       background: "none",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      border: "1px solid rgba(255, 255, 255, 0.6)",
                       padding: "8px 12px",
                       cursor: "pointer",
                       transition: "all 0.18s",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.18)";
+                      (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#ffffff";
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "#52525B";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255, 255, 255, 0.8)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255, 255, 255, 0.6)";
                     }}
                   >
                     Export .csv
@@ -3231,9 +3312,9 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.2em",
                       textTransform: "uppercase",
-                      color: sharing ? "#71717A" : "#52525B",
+                      color: sharing ? "#71717A" : "rgba(255, 255, 255, 0.8)",
                       background: "none",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      border: "1px solid rgba(255, 255, 255, 0.6)",
                       padding: "8px 12px",
                       cursor: sharing ? "not-allowed" : "pointer",
                       transition: "all 0.18s",
@@ -3241,14 +3322,14 @@ export default function ScopeSledgehammer() {
                     }}
                     onMouseEnter={(e) => {
                       if (!sharing) {
-                        (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.18)";
+                        (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = "#ffffff";
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!sharing) {
-                        (e.currentTarget as HTMLButtonElement).style.color = "#52525B";
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
+                        (e.currentTarget as HTMLButtonElement).style.color = "rgba(255, 255, 255, 0.8)";
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255, 255, 255, 0.6)";
                       }
                     }}
                   >
@@ -3266,20 +3347,20 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.2em",
                       textTransform: "uppercase",
-                      color: "#52525B",
+                      color: "rgba(255, 255, 255, 0.8)",
                       background: "none",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      border: "1px solid rgba(255, 255, 255, 0.6)",
                       padding: "8px 12px",
                       cursor: "pointer",
                       transition: "all 0.18s",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.18)";
+                      (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#ffffff";
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "#52525B";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255, 255, 255, 0.8)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255, 255, 255, 0.6)";
                     }}
                   >
                     <RotateCcw size={11} />
@@ -3432,7 +3513,7 @@ export default function ScopeSledgehammer() {
               fontSize: 9.5,
               letterSpacing: "0.18em",
               textTransform: "uppercase",
-              color: "#3F3F46",
+              color: "#a1a1aa",
             }}
           >
             Built by <strong style={{ color: "var(--system-accent)", fontWeight: 700 }}>Team Infernyx</strong>
