@@ -98,7 +98,7 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
   const combinedLogs = events ? [...logMessages, ...events] : logMessages;
 
   return (
-    <div style={{ marginTop: 40, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(10px)", padding: "20px" }}>
+    <div style={{ marginTop: 40, border: "var(--card-border-width, 1px) solid var(--glass-border)", background: "var(--glass-bg-panel)", backdropFilter: "var(--backdrop-blur)", padding: "20px" }}>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "#3F3F46", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
         <Activity size={12} color="#00FFFF" />
         Sledgehammer Impact Stats
@@ -112,7 +112,7 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
           { label: "Time-to-Ship Saved", value: `${timeSaved} Weeks`, icon: TrendingUp, color: "#00FFFF" },
           { label: "Stakeholder Tears Saved", value: tearsSaved.toLocaleString(), icon: HeartCrack, color: "#FF00FF" },
         ].map((metric, i) => (
-          <div key={i} style={{ background: "rgba(15,15,18,0.6)", border: `1px solid ${metric.color}22`, padding: "12px", transition: "all 0.2s" }}>
+          <div key={i} style={{ background: "var(--glass-bg-card)", border: `var(--card-border-width, 1px) solid var(--glass-border)`, padding: "12px", transition: "all 0.2s" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
               <metric.icon size={12} color={metric.color} />
               <span style={{ fontSize: 9, textTransform: "uppercase", color: "#52525B", letterSpacing: "0.1em" }}>{metric.label}</span>

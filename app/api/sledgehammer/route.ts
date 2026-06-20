@@ -81,6 +81,9 @@ function getFallbackTickets(prompt: string, brutality: string) {
   }
 }
 
+export const maxDuration = 60;
+export const runtime = 'edge';
+
 export async function POST(request: Request) {
   let promptText = "";
   let brutalityLevel = "ruthless";
@@ -177,12 +180,8 @@ Return ONLY a valid JSON object. Do not wrap it in markdown code blocks (\`\`\`j
       throw new Error("Malformed data format received from Groq.");
     }
 
-  } catch (error: unknown) {
-    console.error("Groq Route Error, invoking fallback:", error);
-    const fallback = getFallbackTickets(promptText, brutalityLevel);
-    return NextResponse.json({
-      tickets: fallback,
-      stats: { mode: "fallback", error: error instanceof Error ? error.message : String(error) }
-    });
+  } catch (e: any) {
+    console.error("Groq Route Error:", e);
+    return Response.json({ error: e.message }, { status: 500 });
   }
 }

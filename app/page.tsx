@@ -81,7 +81,7 @@ function TicketCard({
       style={{
         background: "var(--glass-bg-card)",
         backdropFilter: "var(--backdrop-blur)",
-        border: `1px solid ${hovered ? accent : "var(--glass-border)"}`,
+        border: `var(--card-border-width, 1px) solid ${hovered ? accent : "var(--glass-border)"}`,
         borderLeft: `4px solid ${effortColor}`,
         boxShadow: hovered
           ? `0 28px 64px rgba(0,0,0,0.55), 0 0 0 1px ${accent}, 0 0 48px ${accent}22`
@@ -397,7 +397,7 @@ function TicketWithDrillDown({
       <div
         style={{
           background: "var(--glass-bg-card)",
-          border: "1px solid var(--glass-border)",
+          border: "var(--card-border-width, 1px) solid var(--glass-border)",
           borderTop: "none",
           boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
           display: "flex",
@@ -441,7 +441,7 @@ function TicketWithDrillDown({
             style={{
               padding: "20px 24px",
               background: "var(--glass-bg-card)",
-              borderTop: "1px dashed var(--glass-border)",
+              borderTop: "var(--card-border-width, 1px) dashed var(--glass-border)",
               fontFamily: "var(--font-family-body)",
               display: "flex",
               flexDirection: "column",
@@ -831,6 +831,8 @@ export default function ScopeSledgehammer() {
       setPhase("loading");
       logEvent(`Initiating Groq completions API request. Brutality: ${brutalityLevel.toUpperCase()}`);
 
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
       try {
         const response = await fetch("/api/sledgehammer", {
           method: "POST",
@@ -838,6 +840,8 @@ export default function ScopeSledgehammer() {
           body: JSON.stringify({ prompt: inputValue, brutality: brutalityLevel }),
           signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         const data = await response.json();
 
@@ -866,8 +870,11 @@ export default function ScopeSledgehammer() {
           throw new Error("Malformed data format received.");
         }
       } catch (err: unknown) {
+        clearTimeout(timeoutId);
         if (err instanceof Error && err.name === "AbortError") {
-          logEvent("Active Sledgehammer fetch aborted by user.");
+          logEvent("Active Sledgehammer fetch timed out or aborted by user.");
+          setError("Request timed out (25s). Vercel edge function or API took too long to respond.");
+          setPhase("idle");
           return; // Aborted: ignore state updates
         }
         const errMsg = err instanceof Error ? err.message : "Something went wrong.";
@@ -908,6 +915,7 @@ export default function ScopeSledgehammer() {
     shakeTimeoutRef.current = setTimeout(() => setFlash(false), 280);
 
     const levels: BrutalityLevel[] = ["gentle", "ruthless", "nuclear"];
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
 
     try {
       const fetchPromises = levels.map(async (level) => {
@@ -931,6 +939,7 @@ export default function ScopeSledgehammer() {
       });
 
       const results = await Promise.allSettled(fetchPromises);
+      clearTimeout(timeoutId);
 
       const mappedResults: CompareResults = {
         gentle: { tickets: [], error: null },
@@ -984,8 +993,11 @@ export default function ScopeSledgehammer() {
         nuclearCount: mappedResults.nuclear.tickets.length,
       });
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        logEvent("Active comparison fetch aborted by user.");
+      clearTimeout(timeoutId);
+      if (controller.signal.aborted) {
+        logEvent("Active comparison fetch timed out or aborted by user.");
+        setError("Comparison request timed out (25s). Vercel edge functions or API took too long to respond.");
+        setPhase("idle");
         return;
       }
       const errMsg = err instanceof Error ? err.message : "Something went wrong.";
@@ -1077,32 +1089,52 @@ export default function ScopeSledgehammer() {
   };
   
   const handleDrillDown = async (ticket: Ticket) => {
-  if (drillId === ticket.id) { setDrillId(null); return; }
-  setDrillLoading(ticket.id);
-  trackPendo("drill_down_opened", { ticketId: ticket.id, title: ticket.title });
-  try {
-    const res  = await fetch("/api/explain", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticket }),
-    });
-    const data = await res.json();
-    setDrillData(prev => ({ ...prev, [ticket.id]: JSON.stringify(data) }));
-    setDrillId(ticket.id);
-  } catch {
-    setDrillId(ticket.id);
-    setDrillData(prev => ({
-      ...prev,
-      [ticket.id]: JSON.stringify({
-        dayOne:   "Ship the MVP core immediately.",
-        defer:    "All secondary features → v2.",
-        watchFor: "Any 'just quickly add' request.",
-      }),
-    }));
-  } finally {
-    setDrillLoading(null);
-  }
-};
+    if (drillId === ticket.id) { setDrillId(null); return; }
+    setDrillLoading(ticket.id);
+    trackPendo("drill_down_opened", { ticketId: ticket.id, title: ticket.title });
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    
+    try {
+      const res  = await fetch("/api/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `Failed with status ${res.status}`);
+      }
+      
+      const data = await res.json();
+      setDrillData(prev => ({ ...prev, [ticket.id]: JSON.stringify(data) }));
+      setDrillId(ticket.id);
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      console.error("Drill-down error:", e);
+      let errMsg = "All secondary features → v2.";
+      if (e.name === "AbortError" || e.message?.includes("aborted")) {
+        errMsg = "Drill-down timed out (25s). Vercel edge function or API took too long.";
+      } else if (e.message) {
+        errMsg = `Error: ${e.message}`;
+      }
+      setDrillId(ticket.id);
+      setDrillData(prev => ({
+        ...prev,
+        [ticket.id]: JSON.stringify({
+          dayOne:   "Analysis failed or timed out.",
+          defer:    errMsg,
+          watchFor: "Try requesting the audit again in a few moments.",
+        }),
+      }));
+    } finally {
+      setDrillLoading(null);
+    }
+  };
 
   const isInputEmpty = inputValue.trim().length === 0;
 
@@ -1346,9 +1378,9 @@ export default function ScopeSledgehammer() {
           left: 0;
           bottom: 0;
           width: 320px;
-          background: rgba(9, 9, 11, 0.96);
+          background: var(--glass-bg-panel);
           backdrop-filter: var(--backdrop-blur);
-          border-right: 1px solid var(--glass-border);
+          border-right: var(--card-border-width, 1px) solid var(--glass-border);
           z-index: 9999;
           transform: translateX(-100%);
           transition: transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
@@ -1383,7 +1415,7 @@ export default function ScopeSledgehammer() {
             width: 100%;
             height: 60vh;
             border-right: none;
-            border-top: 1px solid var(--glass-border);
+            border-top: var(--card-border-width, 1px) solid var(--glass-border);
             transform: translateY(100%);
             border-top-left-radius: 16px;
             border-top-right-radius: 16px;
@@ -1557,7 +1589,7 @@ export default function ScopeSledgehammer() {
       <div
         style={{
           minHeight: "100vh",
-          background: "#09090B",
+          background: "var(--background)",
           color: "#fff",
           fontFamily: "var(--font-family-body)",
           position: "relative",
@@ -2016,7 +2048,7 @@ export default function ScopeSledgehammer() {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
               {/* Textarea */}
-              <div style={{ position: "relative" }}>
+              <div className="textarea-wrapper" style={{ position: "relative" }}>
                 <div
                   style={{
                     display: "flex",

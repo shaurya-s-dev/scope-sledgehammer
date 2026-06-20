@@ -8,6 +8,9 @@ function getMockExplanation(title: string) {
   };
 }
 
+export const maxDuration = 60;
+export const runtime = 'edge';
+
 export async function POST(request: Request) {
   let requestBody: any = {};
   try {
@@ -76,8 +79,8 @@ export async function POST(request: Request) {
     const parsedData = JSON.parse(content);
     return NextResponse.json(parsedData);
 
-  } catch (error: unknown) {
-    console.error("Groq Route Error, invoking fallback:", error);
-    return NextResponse.json(getMockExplanation(title));
+  } catch (e: any) {
+    console.error("Groq Route Error:", e);
+    return Response.json({ error: e.message }, { status: 500 });
   }
 }
