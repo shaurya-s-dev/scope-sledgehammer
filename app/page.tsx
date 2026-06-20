@@ -57,16 +57,22 @@ function TicketCard({
   onCopy: (id: string, text: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const accent = ticket.accent || (index % 2 === 0 ? "#00FFFF" : "#FF00FF");
+  const accent = ticket.accent === "#00FFFF"
+    ? "var(--system-accent)"
+    : ticket.accent === "#FF00FF"
+    ? "var(--system-accent-magenta)"
+    : ticket.accent === "#FF2D2D"
+    ? "var(--nuclear-color)"
+    : (index % 2 === 0 ? "var(--system-accent)" : "var(--system-accent-magenta)");
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: "rgba(15,15,18,0.9)",
-        backdropFilter: "blur(24px) saturate(1.3)",
-        border: `1px solid ${hovered ? accent : "rgba(255,255,255,0.07)"}`,
+        background: "var(--glass-bg-card)",
+        backdropFilter: "var(--backdrop-blur)",
+        border: `1px solid ${hovered ? accent : "var(--glass-border)"}`,
         boxShadow: hovered
           ? `0 28px 64px rgba(0,0,0,0.55), 0 0 0 1px ${accent}, 0 0 48px ${accent}22`
           : "0 8px 32px rgba(0,0,0,0.45)",
@@ -364,8 +370,8 @@ function TicketWithDrillDown({
       {/* Action Bar & Collapsible Panel */}
       <div
         style={{
-          background: "rgba(10,10,12,0.85)",
-          border: "1px solid rgba(255, 255, 255, 0.07)",
+          background: "var(--glass-bg-card)",
+          border: "1px solid var(--glass-border)",
           borderTop: "none",
           boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
           display: "flex",
@@ -408,9 +414,9 @@ function TicketWithDrillDown({
           <div
             style={{
               padding: "20px 24px",
-              background: "rgba(5, 5, 8, 0.4)",
-              borderTop: "1px dashed rgba(255, 255, 255, 0.08)",
-              fontFamily: "'Space Grotesk', system-ui, sans-serif",
+              background: "var(--glass-bg-card)",
+              borderTop: "1px dashed var(--glass-border)",
+              fontFamily: "var(--font-family-body)",
               display: "flex",
               flexDirection: "column",
               gap: 16,
@@ -494,6 +500,28 @@ export default function ScopeSledgehammer() {
   const [compareResults, setCompareResults] = useState<CompareResults | null>(null);
   const [compareBtnHovered, setCompareBtnHovered] = useState(false);
   const [compareBtnPressed, setCompareBtnPressed] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const ticketsContainerRef = useRef<HTMLDivElement>(null);
+  const [theme, setTheme] = useState<"cyber" | "terminal">("cyber");
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("sledgehammer-theme") as "cyber" | "terminal" | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    } else {
+      document.documentElement.setAttribute("data-theme", "cyber");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "cyber" ? "terminal" : "cyber";
+    setTheme(nextTheme);
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    localStorage.setItem("sledgehammer-theme", nextTheme);
+    logEvent(`Theme swapped to ${nextTheme.toUpperCase()}.`);
+    trackPendo("theme_changed", { theme: nextTheme });
+  };
 
   const logEvent = (msg: string) => {
     setTelemetryLogs(prev => [...prev, `[SYSTEM]: ${msg}`]);
@@ -595,6 +623,44 @@ export default function ScopeSledgehammer() {
     document.body.removeChild(link);
 
     logEvent("Tickets exported to CSV format.");
+  };
+
+  const handleShareTickets = async () => {
+    if (!ticketsContainerRef.current || sharing) return;
+    setSharing(true);
+    logEvent("Loading screenshot capture engine...");
+    trackPendo("share_tickets_clicked");
+
+    try {
+      const moduleUrl = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.esm.min.js";
+      // @ts-ignore
+      const html2canvasModule = await import(moduleUrl);
+      const html2canvas = html2canvasModule.default;
+
+      logEvent("Capturing MVP ticket layout...");
+      const canvas = await html2canvas(ticketsContainerRef.current, {
+        scale: 2, // 2x device pixel ratio for high sharpness
+        useCORS: true,
+        backgroundColor: "#09090B", // Match root background color for clean image border
+        logging: false,
+      });
+
+      logEvent("Generating download payload...");
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = "scope-sledgehammer-mvp.png";
+      link.href = dataUrl;
+      link.click();
+
+      logEvent("Ticket layout image successfully downloaded.");
+      trackPendo("share_tickets_success");
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Capture failed";
+      logEvent(`Screenshot capture failed: ${errMsg}`);
+      trackPendo("share_tickets_error", { error: errMsg });
+    } finally {
+      setSharing(false);
+    }
   };
 
   const handleDeployMVP = () => {
@@ -983,24 +1049,24 @@ export default function ScopeSledgehammer() {
       label: "Gentle Cut",
       desc: "5 tickets, mild scope",
       tag: "Jobs-to-be-Done Framework applied.",
-      color: "#00FFFF",
-      bgColor: "rgba(0,255,255,0.05)",
+      color: "var(--gentle-color)",
+      bgColor: "var(--gentle-bg)",
       icon: "◇",
     },
     ruthless: {
       label: "Ruthless Slash",
       desc: "3 tickets, no mercy",
       tag: "MoSCoW Rules: Core Must-Haves Only.",
-      color: "#FF00FF",
-      bgColor: "rgba(255,0,255,0.05)",
+      color: "var(--ruthless-color)",
+      bgColor: "var(--ruthless-bg)",
       icon: "◈",
     },
     nuclear: {
       label: "Nuclear",
       desc: "1 ticket, raw core",
       tag: "⚠ Total System Wipeout: One Feature Max.",
-      color: "#FF2D2D",
-      bgColor: "rgba(255,45,45,0.06)",
+      color: "var(--nuclear-color)",
+      bgColor: "var(--nuclear-bg)",
       icon: "☢",
     },
   };
@@ -1217,7 +1283,7 @@ export default function ScopeSledgehammer() {
           minHeight: "100vh",
           background: "#09090B",
           color: "#fff",
-          fontFamily: "'Space Grotesk', system-ui, sans-serif",
+          fontFamily: "var(--font-family-body)",
           position: "relative",
           overflowX: "hidden",
         }}
@@ -1367,7 +1433,7 @@ export default function ScopeSledgehammer() {
             zIndex: 1,
             backgroundImage:
               "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.55) 3px,rgba(0,0,0,0.55) 4px)",
-            opacity: 0.028,
+            opacity: "var(--scanline-opacity)" as any,
           }}
         />
         {/* Ambient glows */}
@@ -1404,6 +1470,46 @@ export default function ScopeSledgehammer() {
             transition: "max-width 0.4s ease-in-out",
           }}
         >
+          {/* Top-Right Theme Toggle Nav */}
+          <div
+            style={{
+              position: "absolute",
+              top: 24,
+              right: 24,
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              zIndex: 99,
+            }}
+          >
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle theme mode"
+              title={theme === "cyber" ? "Switch to Terminal Mode" : "Switch to Cyber Mode"}
+              style={{
+                background: "rgba(10, 10, 12, 0.6)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--system-accent)",
+                padding: "8px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.2s",
+                outline: "none",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(10, 10, 12, 0.6)";
+              }}
+            >
+              <Terminal size={14} />
+            </button>
+          </div>
 
           {/* ── HERO ── */}
           <header style={{ marginBottom: 52, position: "relative" }}>
@@ -2724,6 +2830,42 @@ export default function ScopeSledgehammer() {
                     Export .csv
                   </button>
 
+                  {/* Share Tickets Button */}
+                  <button
+                    onClick={handleShareTickets}
+                    disabled={sharing}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      color: sharing ? "#71717A" : "#52525B",
+                      background: "none",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                      padding: "8px 12px",
+                      cursor: sharing ? "not-allowed" : "pointer",
+                      transition: "all 0.18s",
+                      opacity: sharing ? 0.7 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!sharing) {
+                        (e.currentTarget as HTMLButtonElement).style.color = "#A1A1AA";
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.18)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!sharing) {
+                        (e.currentTarget as HTMLButtonElement).style.color = "#52525B";
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
+                      }
+                    }}
+                  >
+                    {sharing ? "Generating..." : "Share Tickets"}
+                  </button>
+
                   {/* Reset Button */}
                   <button
                     onClick={handleReset}
@@ -2759,6 +2901,7 @@ export default function ScopeSledgehammer() {
 
               {/* Ticket cards — fade when stale */}
               <div
+                ref={ticketsContainerRef}
                 className={ticketsStale ? "scope-stale-tickets" : ""}
                 style={{
                   display: "flex",

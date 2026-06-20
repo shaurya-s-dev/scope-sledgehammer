@@ -1,8 +1,51 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* Theme Tokens */
+  --font-family-body: 'Space Grotesk', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --backdrop-blur: blur(24px) saturate(1.3);
+  --glass-bg-card: rgba(15,15,18,0.9);
+  --glass-bg-panel: rgba(0,0,0,0.72);
+  --glass-border: rgba(255,255,255,0.07);
+  --scanline-opacity: 0.028;
+  
+  --gentle-color: #00FFFF;
+  --gentle-bg: rgba(0,255,255,0.05);
+  
+  --ruthless-color: #FF00FF;
+  --ruthless-bg: rgba(255,0,255,0.05);
+  
+  --nuclear-color: #FF2D2D;
+  --nuclear-bg: rgba(255,45,45,0.06);
+  
+  --system-accent: #00FFFF;
+  --system-accent-magenta: #FF00FF;
+}
+
+[data-theme="terminal"] {
+  --font-family-body: 'JetBrains Mono', 'Courier New', monospace;
+  --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --backdrop-blur: none;
+  --glass-bg-card: #09090B;
+  --glass-bg-panel: #09090B;
+  --glass-border: #00FF00;
+  --scanline-opacity: 0.15;
+  
+  --gentle-color: #00FF00;
+  --gentle-bg: rgba(0,255,0,0.05);
+  
+  --ruthless-color: #00FF00;
+  --ruthless-bg: rgba(0,255,0,0.05);
+  
+  --nuclear-color: #00FF00;
+  --nuclear-bg: rgba(0,255,0,0.05);
+  
+  --system-accent: #00FF00;
+  --system-accent-magenta: #00FF00;
 }
 
 @theme inline {
@@ -12,29 +55,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 @keyframes blink {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-family-body);
 }
-
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
