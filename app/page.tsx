@@ -1099,18 +1099,32 @@ export default function ScopeSledgehammer() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
     
+    const fetchUrl = "/api/explain";
+    const fetchBody = { ticket };
+    console.log("[DrillDown] Fetching:", fetchUrl, "| Ticket:", ticket.id, "| Body:", JSON.stringify(fetchBody));
+    
     try {
-      const res  = await fetch("/api/explain", {
+      const res = await fetch(fetchUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticket }),
+        body: JSON.stringify(fetchBody),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
       
+      console.log("[DrillDown] Response status:", res.status, "| ok:", res.ok, "| url:", res.url);
+      
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || `Failed with status ${res.status}`);
+        let errorMsg = `Failed with status ${res.status}`;
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch {
+          // Response body wasn't JSON (e.g. Vercel 404 HTML page)
+          const textBody = await res.text().catch(() => "");
+          console.error("[DrillDown] Non-JSON error response body:", textBody.substring(0, 500));
+        }
+        throw new Error(errorMsg);
       }
       
       const data = await res.json();
@@ -1118,7 +1132,7 @@ export default function ScopeSledgehammer() {
       setDrillId(ticket.id);
     } catch (e: any) {
       clearTimeout(timeoutId);
-      console.error("Drill-down error:", e);
+      console.error("[DrillDown] Error:", e);
       let errMsg = "All secondary features → v2.";
       if (e.name === "AbortError" || e.message?.includes("aborted")) {
         errMsg = "Drill-down timed out (25s). Vercel edge function or API took too long.";
