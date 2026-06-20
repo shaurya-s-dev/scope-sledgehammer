@@ -12,31 +12,36 @@ function getFallbackTickets(prompt: string, brutality: string) {
         title: `${name} - CORE DATA MODELING & UPLOAD`,
         scope: "Bare minimum database schema and a direct CSV file parser upload pipeline.",
         whyCut: "Third-party cloud storage integrations and automated database syncing are scope-creep that would stall the launch.",
-        framework: "Jobs-to-be-Done"
+        framework: "Jobs-to-be-Done",
+        effort: 3
       },
       {
         title: `${name} - MAIN STATISTICS VIEW`,
         scope: "Implement a clean, read-only grid displaying static calculated parameters.",
         whyCut: "Dynamic charting modules and real-time websockets are cut to maintain simple database fetches.",
-        framework: "Jobs-to-be-Done"
+        framework: "Jobs-to-be-Done",
+        effort: 2
       },
       {
         title: `${name} - MANUAL WORKSPACE SCHEDULING`,
         scope: "Minimal calendar interface allowing local date scheduling controls.",
         whyCut: "Google Calendar syncing and automatic AI reminder notifications are slashed.",
-        framework: "Jobs-to-be-Done"
+        framework: "Jobs-to-be-Done",
+        effort: 4
       },
       {
         title: `${name} - BASIC NOTIFICATION TRIGGER`,
         scope: "Single rule-based email alert triggered on one key status change.",
         whyCut: "Multi-channel push/SMS/Slack notification systems are deferred until users prove they actually want alerts.",
-        framework: "Jobs-to-be-Done"
+        framework: "Jobs-to-be-Done",
+        effort: 1
       },
       {
         title: `${name} - SIMPLE USER PROFILE`,
         scope: "Minimal account page showing name, email, and one editable preference field.",
         whyCut: "Granular permission tiers, avatar uploads, and social profile linking add no validation value pre-launch.",
-        framework: "Jobs-to-be-Done"
+        framework: "Jobs-to-be-Done",
+        effort: 2
       }
     ];
   } else if (brutality === 'ruthless') {
@@ -45,19 +50,22 @@ function getFallbackTickets(prompt: string, brutality: string) {
         title: `${name} - RAW PIPELINE INPUT`,
         scope: "Single raw text area input allowing copy-paste parsing with synchronous processing.",
         whyCut: "Integrations with Slack, Microsoft Teams, and JIRA webhooks are cut to focus on direct interface entry.",
-        framework: "MoSCoW Rules: Must-Have"
+        framework: "MoSCoW Rules: Must-Have",
+        effort: 2
       },
       {
         title: `${name} - SYNCHRONOUS TICKET PARSER`,
         scope: "Local script translating the text inputs directly to a JSON payload.",
         whyCut: "Worker queue pipelines, notification relays, and background cron schedules are completely slashed.",
-        framework: "MoSCoW Rules: Must-Have"
+        framework: "MoSCoW Rules: Must-Have",
+        effort: 3
       },
       {
         title: `${name} - SYSTEM TEXT CLIPBOARD`,
         scope: "Simple copy-to-clipboard button using the standard browser clipboard API.",
         whyCut: "PDF generation tools and direct export-to-Jira components are cut to reduce dependency weight.",
-        framework: "MoSCoW Rules: Must-Have"
+        framework: "MoSCoW Rules: Must-Have",
+        effort: 1
       }
     ];
   } else {
@@ -66,7 +74,8 @@ function getFallbackTickets(prompt: string, brutality: string) {
         title: `${name} - RAW CLI MVP UTILITY`,
         scope: "A single command-line conceptual text box outputting the core feature.",
         whyCut: "All components, dashboard telemetry, custom layout configurations, and graphical ticket renders are vaporized.",
-        framework: "Nuclear Option"
+        framework: "Nuclear Option",
+        effort: 1
       }
     ];
   }
@@ -123,6 +132,7 @@ Each ticket object MUST have these exact keys:
 - 'scope': What is explicitly included in this ticket.
 - 'whyCut': A sharp, cynical one-sentence explanation of what feature bloat was discarded and why it would have killed the startup.
 - 'framework': The framework applied.
+- 'effort': An integer from 1 to 5 (where 1 = trivial, 5 = very hard) representing the development effort required for this stripped-down ticket.
 
 Return ONLY a valid JSON object. Do not wrap it in markdown code blocks (\`\`\`json) or add introductory text.`;
 

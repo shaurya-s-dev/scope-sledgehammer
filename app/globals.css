@@ -24,6 +24,10 @@
   
   --system-accent: #00FFFF;
   --system-accent-magenta: #FF00FF;
+
+  --effort-low: #22c55e;
+  --effort-med: #f59e0b;
+  --effort-high: #ef4444;
 }
 
 [data-theme="terminal"] {
@@ -46,6 +50,10 @@
   
   --system-accent: #00FF00;
   --system-accent-magenta: #00FF00;
+
+  --effort-low: #00FF00;
+  --effort-med: #00FF00;
+  --effort-high: #00FF00;
 }
 
 @theme inline {

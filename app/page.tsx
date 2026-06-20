@@ -23,6 +23,7 @@ interface Ticket {
   scope: string;
   why: string;
   accent?: string;
+  effort?: number;
 }
 
 function HammerIcon({ size = 24, style }: { size?: number; style?: React.CSSProperties }) {
@@ -65,6 +66,14 @@ function TicketCard({
     ? "var(--nuclear-color)"
     : (index % 2 === 0 ? "var(--system-accent)" : "var(--system-accent-magenta)");
 
+  const effortColor = ticket.effort !== undefined
+    ? ticket.effort <= 2
+      ? "var(--effort-low)"
+      : ticket.effort === 3
+      ? "var(--effort-med)"
+      : "var(--effort-high)"
+    : accent;
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -73,6 +82,7 @@ function TicketCard({
         background: "var(--glass-bg-card)",
         backdropFilter: "var(--backdrop-blur)",
         border: `1px solid ${hovered ? accent : "var(--glass-border)"}`,
+        borderLeft: `4px solid ${effortColor}`,
         boxShadow: hovered
           ? `0 28px 64px rgba(0,0,0,0.55), 0 0 0 1px ${accent}, 0 0 48px ${accent}22`
           : "0 8px 32px rgba(0,0,0,0.45)",
@@ -134,6 +144,22 @@ function TicketCard({
             >
               {ticket.priority}
             </span>
+            {ticket.effort !== undefined && (
+              <span
+                style={{
+                  fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.14em",
+                  padding: "3px 8px",
+                  background: `${effortColor}18`,
+                  border: `1px solid ${effortColor}44`,
+                  color: effortColor,
+                }}
+              >
+                Effort {ticket.effort}/5
+              </span>
+            )}
           </div>
           <button
             onClick={() =>
@@ -504,6 +530,15 @@ export default function ScopeSledgehammer() {
   const ticketsContainerRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<"cyber" | "terminal">("cyber");
 
+  interface HistoryEntry {
+    idea: string;
+    brutality: BrutalityLevel;
+    tickets: Ticket[];
+    timestamp: number;
+  }
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
   useEffect(() => {
     const savedTheme = localStorage.getItem("sledgehammer-theme") as "cyber" | "terminal" | null;
     if (savedTheme) {
@@ -512,7 +547,47 @@ export default function ScopeSledgehammer() {
     } else {
       document.documentElement.setAttribute("data-theme", "cyber");
     }
+
+    try {
+      const historyStr = localStorage.getItem("sledgehammer-history");
+      if (historyStr) {
+        setHistory(JSON.parse(historyStr));
+      }
+    } catch (e) {
+      console.error("Failed to load history from localStorage:", e);
+    }
   }, []);
+
+  const saveToHistory = (ideaText: string, brutality: BrutalityLevel, ticketList: Ticket[]) => {
+    try {
+      const historyStr = localStorage.getItem("sledgehammer-history");
+      const currentHistory: HistoryEntry[] = historyStr ? JSON.parse(historyStr) : [];
+      const newEntry: HistoryEntry = {
+        idea: ideaText,
+        brutality,
+        tickets: ticketList,
+        timestamp: Date.now(),
+      };
+      const updatedHistory = [newEntry, ...currentHistory].slice(0, 5);
+      localStorage.setItem("sledgehammer-history", JSON.stringify(updatedHistory));
+      setHistory(updatedHistory);
+      logEvent("Run saved to history.");
+    } catch (e) {
+      console.error("Failed to save to history:", e);
+    }
+  };
+
+  const getRelativeTime = (timestamp: number) => {
+    const diff = Date.now() - timestamp;
+    const secs = Math.floor(diff / 1000);
+    if (secs < 60) return "just now";
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
 
   const toggleTheme = () => {
     const nextTheme = theme === "cyber" ? "terminal" : "cyber";
@@ -771,16 +846,18 @@ export default function ScopeSledgehammer() {
         if (data.tickets && Array.isArray(data.tickets)) {
           const priorityLabels = ["CRITICAL", "HIGH", "MEDIUM"];
           const accentColors = ["#00FFFF", "#FF00FF", "#00FFFF"];
-          const mapped: Ticket[] = data.tickets.map((t: { title?: string; scope?: string; whyCut?: string; why?: string }, i: number) => ({
+          const mapped: Ticket[] = data.tickets.map((t: { title?: string; scope?: string; whyCut?: string; why?: string; effort?: number }, i: number) => ({
             id: `SLEDGE-${String(i + 1).padStart(3, "0")}`,
             priority: priorityLabels[i] || "HIGH",
             title: t.title ?? "Untitled Ticket",
             scope: t.scope ?? "",
             why: t.whyCut ?? t.why ?? "",
             accent: accentColors[i % accentColors.length],
+            effort: t.effort,
           }));
           setTickets(mapped);
           setPhase("revealed");
+          saveToHistory(inputValue, brutalityLevel, mapped);
           abortControllerRef.current = null;
           trackPendo("sledgehammer_revealed", { ticketCount: mapped.length, brutality: brutalityLevel });
           const modeStr = data.stats?.mode === "live" ? "LIVE (Groq)" : "FALLBACK (mock)";
@@ -882,6 +959,7 @@ export default function ScopeSledgehammer() {
             scope: t.scope ?? "",
             why: t.whyCut ?? t.why ?? "",
             accent: accentColors[i % accentColors.length],
+            effort: t.effort,
           }));
           logEvent(`${level.toUpperCase()} completions resolved with ${res.value.tickets.length} tickets.`);
         } else {
@@ -1261,6 +1339,60 @@ export default function ScopeSledgehammer() {
         .skeleton-pulse {
           animation: skeletonPulse 1.5s ease-in-out infinite;
         }
+        
+        .history-panel {
+          position: fixed;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 320px;
+          background: rgba(9, 9, 11, 0.96);
+          backdrop-filter: var(--backdrop-blur);
+          border-right: 1px solid var(--glass-border);
+          z-index: 9999;
+          transform: translateX(-100%);
+          transition: transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+          display: flex;
+          flex-direction: column;
+          padding: 24px;
+        }
+        .history-panel.open {
+          transform: translateX(0);
+        }
+        
+        .history-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.6);
+          backdrop-filter: blur(4px);
+          z-index: 9998;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.3s ease;
+        }
+        .history-backdrop.open {
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        @media (max-width: 768px) {
+          .history-panel {
+            top: auto;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 60vh;
+            border-right: none;
+            border-top: 1px solid var(--glass-border);
+            transform: translateY(100%);
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+          }
+          .history-panel.open {
+            transform: translateY(0);
+            transform: translateX(0);
+          }
+        }
       `}</style>
 
       {/* Flash overlay */}
@@ -1276,6 +1408,150 @@ export default function ScopeSledgehammer() {
           }}
         />
       )}
+
+      {/* History Backdrop */}
+      <div
+        className={`history-backdrop ${historyOpen ? "open" : ""}`}
+        onClick={() => setHistoryOpen(false)}
+      />
+
+      {/* History Panel / Drawer */}
+      <div className={`history-panel ${historyOpen ? "open" : ""}`}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, borderBottom: "1px solid var(--glass-border)", paddingBottom: 16 }}>
+          <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: "-0.01em", color: "#fff", margin: 0 }}>
+            RUN HISTORY
+          </h2>
+          <button
+            onClick={() => setHistoryOpen(false)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#52525B",
+              cursor: "pointer",
+              fontSize: 16,
+              lineHeight: 0,
+              padding: 4,
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#fff")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#52525B")}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* History list */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto", flex: 1, paddingRight: 4 }}>
+          {history.length === 0 ? (
+            <div style={{ color: "#52525B", fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", textAlign: "center", marginTop: 40, lineHeight: 1.6 }}>
+              // NO HISTORICAL RUNS RECORDED YET
+            </div>
+          ) : (
+            history.map((entry, idx) => {
+              const truncatedIdea = entry.idea.length > 40 ? entry.idea.substring(0, 40) + "..." : entry.idea;
+              const relativeTime = getRelativeTime(entry.timestamp);
+              const meta = brutalityMeta[entry.brutality];
+              return (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setInputValue(entry.idea);
+                    setBrutalityLevel(entry.brutality);
+                    setTickets(entry.tickets);
+                    setPhase("revealed");
+                    setError(null);
+                    setTicketsStale(false);
+                    setCompareResults(null);
+                    setHistoryOpen(false);
+                    logEvent(`Loaded run from history for brutality level: ${entry.brutality.toUpperCase()}`);
+                    trackPendo("history_entry_loaded", { brutality: entry.brutality });
+                  }}
+                  style={{
+                    textAlign: "left",
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid var(--glass-border)",
+                    padding: 12,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    width: "100%",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
+                    (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
+                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 550, color: "#fff", lineHeight: 1.45, fontFamily: "var(--font-family-body)" }}>
+                    &ldquo;{truncatedIdea}&rdquo;
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                    <span style={{ fontSize: 10, color: "#52525B", fontFamily: "'JetBrains Mono', monospace" }}>
+                      {relativeTime}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        padding: "2px 6px",
+                        background: `${meta.color}15`,
+                        border: `1px solid ${meta.color}44`,
+                        color: meta.color,
+                      }}
+                    >
+                      {meta.label}
+                    </span>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Clear History Button */}
+        {history.length > 0 && (
+          <button
+            onClick={() => {
+              localStorage.removeItem("sledgehammer-history");
+              setHistory([]);
+              logEvent("Session history cleared.");
+              trackPendo("history_cleared");
+            }}
+            style={{
+              width: "100%",
+              background: "rgba(255,45,45,0.06)",
+              border: "1px solid rgba(255,45,45,0.28)",
+              color: "#FF5555",
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              padding: "12px 0",
+              cursor: "pointer",
+              transition: "all 0.18s",
+              marginTop: 16,
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,45,45,0.15)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#FF5555";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,45,45,0.06)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,45,45,0.28)";
+            }}
+          >
+            ✖ Clear History
+          </button>
+        )}
+      </div>
 
       {/* Root */}
       <div
@@ -1482,6 +1758,40 @@ export default function ScopeSledgehammer() {
               zIndex: 99,
             }}
           >
+            <button
+              onClick={() => setHistoryOpen(!historyOpen)}
+              title="Toggle History panel"
+              style={{
+                background: "rgba(10, 10, 12, 0.6)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--system-accent)",
+                padding: "8px 12.5px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10.5,
+                fontWeight: 750,
+                transition: "all 0.2s",
+                outline: "none",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-border)";
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(10, 10, 12, 0.6)";
+              }}
+            >
+              <span>{historyOpen ? "◀ CLOSE" : "▶ HISTORY"}</span>
+              {history.length > 0 && (
+                <span style={{ fontSize: 9.5, padding: "1px 5px", background: "var(--system-accent-magenta)", color: "#000", fontWeight: 900 }}>
+                  {history.length}
+                </span>
+              )}
+            </button>
             <button
               onClick={toggleTheme}
               aria-label="Toggle theme mode"
