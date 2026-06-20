@@ -20,7 +20,8 @@ export default function NetworkBackground() {
     };
     window.addEventListener("resize", handleResize);
 
-    const particleCount = 25; // 20-30 particles
+    const particleCount = 40;
+    const largeParticleCount = 3;
     interface Particle {
       x: number;
       y: number;
@@ -30,23 +31,29 @@ export default function NetworkBackground() {
       alpha: number;
       decay: number;
       isMagenta: boolean;
+      isLarge: boolean;
     }
     const particles: Particle[] = [];
 
-    const initParticle = (p: Partial<Particle> = {}, randomY = false): Particle => {
+    const initParticle = (p: Partial<Particle> = {}, randomY = false, isLarge = false): Particle => {
       p.x = Math.random() * width;
       p.y = randomY ? Math.random() * height : height + 10;
-      p.vx = (Math.random() - 0.5) * 0.25;
-      p.vy = -Math.random() * 0.4 - 0.15; // Slow upward drift
-      p.radius = Math.random() * 2 + 1.2;
+      p.isLarge = isLarge;
+      p.vx = (Math.random() - 0.5) * (isLarge ? 0.1 : 0.25);
+      p.vy = isLarge
+        ? -Math.random() * 0.16 - 0.06
+        : -Math.random() * 0.4 - 0.15;
+      p.radius = isLarge ? 3 : Math.random() * 1.6 + 1.2;
       p.alpha = randomY ? Math.random() * 0.8 + 0.2 : 1.0;
-      p.decay = Math.random() * 0.003 + 0.0015;
-      p.isMagenta = Math.random() > 0.5;
+      p.decay = isLarge
+        ? Math.random() * 0.001 + 0.0004
+        : Math.random() * 0.003 + 0.0015;
+      p.isMagenta = Math.floor(Math.random() * 20) === 0;
       return p as Particle;
     };
 
     for (let i = 0; i < particleCount; i++) {
-      particles.push(initParticle({}, true));
+      particles.push(initParticle({}, true, i < largeParticleCount));
     }
 
     const animate = () => {
@@ -62,7 +69,7 @@ export default function NetworkBackground() {
 
         // Reset particle when it fades out or drifts off-screen
         if (p.alpha <= 0 || p.y < -10 || p.x < -10 || p.x > width + 10) {
-          initParticle(p, false);
+          initParticle(p, false, p.isLarge);
         }
 
         const alphaVal = Math.max(0, Math.min(1, p.alpha));
@@ -99,7 +106,7 @@ export default function NetworkBackground() {
         width: "100vw",
         height: "100vh",
         pointerEvents: "none",
-        zIndex: 0,
+        zIndex: -1,
       }}
     />
   );

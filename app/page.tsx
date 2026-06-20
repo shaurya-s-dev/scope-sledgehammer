@@ -80,15 +80,15 @@ function TicketCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: "var(--glass-bg-card)",
-        backdropFilter: "var(--backdrop-blur)",
-        border: `var(--card-border-width, 1px) solid ${hovered ? accent : "var(--glass-border)"}`,
-        borderLeft: `4px solid ${effortColor}`,
+        background: "rgba(0,255,255,0.03)",
+        backdropFilter: "blur(4px)",
+        border: `1px solid ${hovered ? accent : "var(--glass-border)"}`,
+        borderLeft: `3px solid ${effortColor}`,
         boxShadow: hovered
           ? `0 28px 64px rgba(0,0,0,0.55), 0 0 0 1px ${accent}, 0 0 48px ${accent}22`
           : "0 8px 32px rgba(0,0,0,0.45)",
-        transform: hovered ? "translateY(-5px)" : "translateY(0)",
-        transition: "all 0.28s cubic-bezier(0.34, 1.2, 0.64, 1)",
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+        transition: "all 0.2s cubic-bezier(0.34, 1.2, 0.64, 1)",
         position: "relative",
         overflow: "hidden",
       }}
@@ -111,15 +111,16 @@ function TicketCard({
         >
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <span
+              className="ticket-id-badge"
               style={{
                 fontFamily: "'JetBrains Mono', 'Courier New', monospace",
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: "0.12em",
                 padding: "3px 8px",
-                background: `${accent}18`,
-                border: `1px solid ${accent}44`,
-                color: accent,
+                background: "rgba(0,255,255,0.1)",
+                border: "1px solid rgba(0,255,255,0.3)",
+                color: "#00ffff",
               }}
             >
               {ticket.id}
@@ -133,14 +134,17 @@ function TicketCard({
                 padding: "3px 8px",
                 background:
                   ticket.priority === "CRITICAL"
-                    ? "rgba(255,45,45,0.12)"
-                    : "rgba(255,165,0,0.12)",
-                border: `1px solid ${
+                    ? "#ff003c"
+                    : ticket.priority === "HIGH"
+                    ? "#ff6600"
+                    : "#ffaa00",
+                border: "none",
+                color:
                   ticket.priority === "CRITICAL"
-                    ? "rgba(255,45,45,0.28)"
-                    : "rgba(255,165,0,0.28)"
-                }`,
-                color: ticket.priority === "CRITICAL" ? "#FF5555" : "#FFAA00",
+                    ? "#ffffff"
+                    : ticket.priority === "HIGH"
+                    ? "#ffffff"
+                    : "#000000",
               }}
             >
               {ticket.priority}
@@ -357,6 +361,64 @@ interface SafeAnalysisRenderProps {
   explanation: any;
 }
 
+function toSentenceCase(text: string): string {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+}
+
+function parsePotentialJson(value: unknown): any {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function readText(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return "";
+}
+
+function sanitizeDisplayText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+
+  if (Array.isArray(value)) {
+    const flattened = value
+      .map((item) => sanitizeDisplayText(item))
+      .filter(Boolean)
+      .join(" ");
+    return flattened.trim();
+  }
+
+  if (typeof value === "object") {
+    const joined = Object.values(value as Record<string, unknown>)
+      .map((entry) => sanitizeDisplayText(entry))
+      .filter(Boolean)
+      .join(" ");
+    return joined.trim();
+  }
+
+  return readText(value)
+    .replace(/[{}[\]"]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function SafeAnalysisRender({ explanation }: SafeAnalysisRenderProps) {
   try {
     if (!explanation) {
@@ -375,64 +437,189 @@ function SafeAnalysisRender({ explanation }: SafeAnalysisRenderProps) {
       );
     }
 
-    let dayOneText = "";
-    if (explanation.dayOne !== undefined && explanation.dayOne !== null) {
-      if (typeof explanation.dayOne === "object") {
-        const issue = explanation.dayOne.issue || "";
-        const impact = explanation.dayOne.impact || "";
-        dayOneText = [issue, impact].filter(Boolean).join(" - ");
-        if (!dayOneText) {
-          dayOneText = JSON.stringify(explanation.dayOne);
+    const dayOneRaw = parsePotentialJson(explanation?.dayOne);
+    const deferRaw = parsePotentialJson(explanation?.defer);
+    const watchRaw = parsePotentialJson(explanation?.watchFor);
+
+    const dayOneIssue =
+      typeof dayOneRaw === "object" && dayOneRaw !== null && !Array.isArray(dayOneRaw)
+        ? sanitizeDisplayText((dayOneRaw as Record<string, unknown>)?.issue) ||
+          sanitizeDisplayText((dayOneRaw as Record<string, unknown>)?.title)
+        : sanitizeDisplayText(dayOneRaw);
+
+    const dayOneDescription =
+      typeof dayOneRaw === "object" && dayOneRaw !== null && !Array.isArray(dayOneRaw)
+        ? sanitizeDisplayText((dayOneRaw as Record<string, unknown>)?.impact) ||
+          sanitizeDisplayText((dayOneRaw as Record<string, unknown>)?.description)
+        : "";
+
+    const deferItems: Array<{ feature: string; reason: string }> = (() => {
+      if (Array.isArray(deferRaw)) {
+        return deferRaw
+          .map((item) => {
+            const parsed = parsePotentialJson(item);
+            if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+              return {
+                feature:
+                  sanitizeDisplayText((parsed as Record<string, unknown>)?.feature) ||
+                  sanitizeDisplayText((parsed as Record<string, unknown>)?.name),
+                reason:
+                  sanitizeDisplayText((parsed as Record<string, unknown>)?.reason) ||
+                  sanitizeDisplayText((parsed as Record<string, unknown>)?.why),
+              };
+            }
+            return { feature: sanitizeDisplayText(parsed), reason: "" };
+          })
+          .filter((item) => item.feature);
+      }
+
+      if (typeof deferRaw === "object" && deferRaw !== null) {
+        const objectValue = deferRaw as Record<string, unknown>;
+        const features = Array.isArray(objectValue?.features)
+          ? objectValue.features
+          : Array.isArray(objectValue?.items)
+          ? objectValue.items
+          : null;
+        if (features) {
+          return features
+            .map((item) => {
+              const parsed = parsePotentialJson(item);
+              if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+                return {
+                  feature:
+                    sanitizeDisplayText((parsed as Record<string, unknown>)?.feature) ||
+                    sanitizeDisplayText((parsed as Record<string, unknown>)?.name),
+                  reason:
+                    sanitizeDisplayText((parsed as Record<string, unknown>)?.reason) ||
+                    sanitizeDisplayText((parsed as Record<string, unknown>)?.why),
+                };
+              }
+              return { feature: sanitizeDisplayText(parsed), reason: "" };
+            })
+            .filter((item) => item.feature);
         }
-      } else {
-        dayOneText = String(explanation.dayOne);
-      }
-    }
 
-    let deferText = "";
-    if (explanation.defer !== undefined && explanation.defer !== null) {
-      if (typeof explanation.defer === "object") {
-        const opt = explanation.defer.customizationOption || "";
-        deferText = opt || JSON.stringify(explanation.defer);
-      } else {
-        deferText = String(explanation.defer);
+        return Object.entries(objectValue)
+          .map(([feature, reason]) => ({
+            feature: sanitizeDisplayText(feature),
+            reason: sanitizeDisplayText(reason),
+          }))
+          .filter((item) => item.feature);
       }
-    }
 
-    let watchForText = "";
-    if (explanation.watchFor !== undefined && explanation.watchFor !== null) {
-      if (typeof explanation.watchFor === "object") {
-        watchForText = JSON.stringify(explanation.watchFor);
-      } else {
-        watchForText = String(explanation.watchFor);
+      const plain = sanitizeDisplayText(deferRaw);
+      return plain ? [{ feature: plain, reason: "" }] : [];
+    })();
+
+    const watchRows: Array<{ label: string; threshold: string }> = (() => {
+      if (Array.isArray(watchRaw)) {
+        return watchRaw
+          .map((item) => {
+            const parsed = parsePotentialJson(item);
+            if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+              const objectValue = parsed as Record<string, unknown>;
+              return {
+                label:
+                  sanitizeDisplayText(objectValue?.metric) ||
+                  sanitizeDisplayText(objectValue?.label) ||
+                  sanitizeDisplayText(objectValue?.name),
+                threshold:
+                  sanitizeDisplayText(objectValue?.threshold) ||
+                  sanitizeDisplayText(objectValue?.value),
+              };
+            }
+            return { label: "Risk", threshold: sanitizeDisplayText(parsed) };
+          })
+          .filter((row) => row.label || row.threshold);
       }
-    }
+
+      if (typeof watchRaw === "object" && watchRaw !== null) {
+        const objectValue = watchRaw as Record<string, unknown>;
+        const metric = sanitizeDisplayText(objectValue?.metric || objectValue?.label || objectValue?.name);
+        const threshold = sanitizeDisplayText(objectValue?.threshold || objectValue?.value || objectValue?.warning);
+        if (metric || threshold) {
+          return [{ label: metric || "Metric", threshold: threshold || "Watch closely" }];
+        }
+
+        return Object.entries(objectValue)
+          .map(([label, thresholdValue]) => ({
+            label: sanitizeDisplayText(label),
+            threshold: sanitizeDisplayText(thresholdValue),
+          }))
+          .filter((row) => row.label || row.threshold);
+      }
+
+      const plain = sanitizeDisplayText(watchRaw);
+      return plain ? [{ label: "Risk", threshold: plain }] : [];
+    })();
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF00FF", marginBottom: 4 }}>
+        <div style={{ paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#888888", marginBottom: 8 }}>
             // Day One Implementation
           </div>
-          <p style={{ fontSize: 13, color: "#E4E4E7", margin: 0, lineHeight: 1.6 }}>
-            {dayOneText}
-          </p>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <span style={{ color: "#FFAA00", lineHeight: 1.2 }}>⚠</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <strong style={{ fontSize: 13.5, fontWeight: 700, color: "#FFFFFF" }}>
+                {dayOneIssue || "MVP baseline implementation"}
+              </strong>
+              <p style={{ fontSize: 12.5, color: "#A1A1AA", margin: 0, lineHeight: 1.5 }}>
+                {dayOneDescription || "• Keep scope constrained to the minimum deployable output."}
+              </p>
+              {dayOneIssue && (
+                <p style={{ margin: 0, color: "#CCCCCC", fontSize: 12.5, lineHeight: 1.5 }}>
+                  • {toSentenceCase(dayOneIssue)}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-        <div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#00FFFF", marginBottom: 4 }}>
+
+        <div style={{ paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#888888", marginBottom: 8 }}>
             // Deferred Scope
           </div>
-          <p style={{ fontSize: 13, color: "#A1A1AA", margin: 0, lineHeight: 1.6 }}>
-            {deferText}
-          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {(deferItems.length > 0 ? deferItems : [{ feature: "Post-launch feature set", reason: "Defer enhancements until user pull is validated." }]).map((item, idx) => (
+              <div key={`${item.feature}-${idx}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#00FF88",
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(0,255,136,0.35)",
+                    background: "rgba(0,255,136,0.09)",
+                  }}
+                >
+                  {item.feature}
+                </span>
+                {item.reason && (
+                  <p style={{ margin: 0, fontSize: 12, color: "#888888", fontStyle: "italic", lineHeight: 1.5 }}>
+                    {item.reason}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-        <div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#FF2D2D", marginBottom: 4 }}>
+
+        <div style={{ borderLeft: "3px solid #FF003C", paddingLeft: 12 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#888888", marginBottom: 8 }}>
             // Technical Risks & Warning
           </div>
-          <p style={{ fontSize: 13, color: "#FFAA00", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
-            {watchForText}
-          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {(watchRows.length > 0 ? watchRows : [{ label: "Risk threshold", threshold: "Monitor stakeholder scope pressure." }]).map((row, idx) => (
+              <div key={`${row.label}-${idx}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#CCCCCC", fontSize: 12.5 }}>{row.label || "Metric"}</span>
+                <span style={{ color: "#FFAA00", fontSize: 12.5, fontWeight: 700 }}>{row.threshold || "Watch"}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -476,12 +663,22 @@ function TicketWithDrillDown({
   const isDrillOpen = drillId === ticket.id;
   const explanation = drillData[ticket.id] || null;
   const isLoading = drillLoading === ticket.id;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelMaxHeight, setPanelMaxHeight] = useState(0);
+
+  useEffect(() => {
+    if (isDrillOpen && explanation && panelRef.current) {
+      setPanelMaxHeight(panelRef.current.scrollHeight);
+      return;
+    }
+    setPanelMaxHeight(0);
+  }, [isDrillOpen, explanation]);
 
   return (
     <div
       className="scope-card-in"
       style={{
-        animationDelay: `${index * 120}ms`,
+        animationDelay: `${index * 100}ms`,
         display: "flex",
         flexDirection: "column",
         gap: 0,
@@ -540,8 +737,15 @@ function TicketWithDrillDown({
         </div>
 
         {/* Collapsible Panel */}
-        {isDrillOpen && explanation && (
+        <div
+          style={{
+            maxHeight: isDrillOpen && explanation ? `${panelMaxHeight}px` : "0px",
+            overflow: "hidden",
+            transition: "max-height 0.3s ease",
+          }}
+        >
           <div
+            ref={panelRef}
             style={{
               padding: "20px 24px",
               background: "var(--glass-bg-card)",
@@ -552,9 +756,9 @@ function TicketWithDrillDown({
               gap: 16,
             }}
           >
-            <SafeAnalysisRender explanation={explanation} />
+            {isDrillOpen && explanation && <SafeAnalysisRender explanation={explanation} />}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -607,8 +811,6 @@ export default function ScopeSledgehammer() {
   const [compareResults, setCompareResults] = useState<CompareResults | null>(null);
   const [compareBtnHovered, setCompareBtnHovered] = useState(false);
   const [compareBtnPressed, setCompareBtnPressed] = useState(false);
-  const [sharing, setSharing] = useState(false);
-  const ticketsContainerRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<"cyber" | "terminal">("cyber");
 
   interface HistoryEntry {
@@ -619,6 +821,7 @@ export default function ScopeSledgehammer() {
   }
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [glitchActive, setGlitchActive] = useState(false);
 
   useEffect(() => {
     try {
@@ -790,44 +993,6 @@ export default function ScopeSledgehammer() {
     logEvent("Tickets exported to CSV format.");
   };
 
-  const handleShareTickets = async () => {
-    if (!ticketsContainerRef.current || sharing) return;
-    setSharing(true);
-    logEvent("Loading screenshot capture engine...");
-    trackPendo("share_tickets_clicked");
-
-    try {
-      const moduleUrl = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.esm.min.js";
-      // @ts-ignore
-      const html2canvasModule = await import(moduleUrl);
-      const html2canvas = html2canvasModule.default;
-
-      logEvent("Capturing MVP ticket layout...");
-      const canvas = await html2canvas(ticketsContainerRef.current, {
-        scale: 2, // 2x device pixel ratio for high sharpness
-        useCORS: true,
-        backgroundColor: "#09090B", // Match root background color for clean image border
-        logging: false,
-      });
-
-      logEvent("Generating download payload...");
-      const dataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = "scope-sledgehammer-mvp.png";
-      link.href = dataUrl;
-      link.click();
-
-      logEvent("Ticket layout image successfully downloaded.");
-      trackPendo("share_tickets_success");
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "Capture failed";
-      logEvent(`Screenshot capture failed: ${errMsg}`);
-      trackPendo("share_tickets_error", { error: errMsg });
-    } finally {
-      setSharing(false);
-    }
-  };
-
   const handleDeployMVP = () => {
     window.open("https://vercel.com/new", "_blank");
     logEvent("MVP deployment initiated via Vercel.");
@@ -858,6 +1023,20 @@ export default function ScopeSledgehammer() {
       if (msgTimer.current) clearTimeout(msgTimer.current);
     };
   }, [phase, msgIndex]);
+
+  // Glitch flicker: every 8-12 seconds, page translateX(3px) for 80ms
+  useEffect(() => {
+    const scheduleGlitch = () => {
+      const delay = 8000 + Math.random() * 4000;
+      return setTimeout(() => {
+        setGlitchActive(true);
+        setTimeout(() => setGlitchActive(false), 80);
+        scheduleGlitch();
+      }, delay);
+    };
+    const timer = scheduleGlitch();
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSledgehammer = async () => {
     if (phase === "shaking" || phase === "loading") {
@@ -1307,6 +1486,22 @@ export default function ScopeSledgehammer() {
     <>
       <NetworkBackground />
       <PendoDebug />
+
+      {/* Perspective Grid */}
+      <div className="grid-perspective" aria-hidden="true">
+        <div className="grid-lines" />
+      </div>
+
+      {/* Corner Brackets */}
+      <div className="corner-bracket corner-top-left" aria-hidden="true" />
+      <div className="corner-bracket corner-top-right" aria-hidden="true" />
+      <div className="corner-bracket corner-bottom-left" aria-hidden="true" />
+      <div className="corner-bracket corner-bottom-right" aria-hidden="true" />
+
+      {/* Ambient Glow Blobs */}
+      <div className="glow-blob glow-blob-1" aria-hidden="true" />
+      <div className="glow-blob glow-blob-2" aria-hidden="true" />
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -1325,9 +1520,9 @@ export default function ScopeSledgehammer() {
           84% { transform: translate(-1px,1px); }
         }
 
-        @keyframes riseIn {
-          from { opacity: 0; transform: translateY(44px) scale(0.95); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
 
         @keyframes flashOverlay {
@@ -1399,6 +1594,17 @@ export default function ScopeSledgehammer() {
           to   { opacity: 1; transform: translateY(0); }
         }
 
+        @keyframes fadeInFast {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+
+        @keyframes badgePulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); }
+        }
+
         @keyframes nuclearTagBlink {
           0%, 70%, 100% { opacity: 1; }
           85% { opacity: 0.4; }
@@ -1426,11 +1632,13 @@ export default function ScopeSledgehammer() {
         }
 
         .scope-quaking       { animation: quake 0.52s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
-        .scope-card-in       { animation: riseIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        .scope-card-in       { animation: fadeSlideUp 0.4s ease-out both; }
         .scope-blink         { animation: blink 1s step-end infinite; }
         .scope-title         { animation: titleChroma 3s ease-in-out infinite; }
         .scope-input-focused {
           border-color: #00FFFF !important;
+          border-width: 2px !important;
+          outline: none !important;
           animation: inputGlow 2s ease-in-out infinite;
         }
         .scope-input-blur {
@@ -1457,6 +1665,13 @@ export default function ScopeSledgehammer() {
         }
         .scope-tag-enter {
           animation: tagSlideIn 0.25s ease both;
+        }
+        .brutality-desc-enter {
+          animation: fadeInFast 0.2s ease both;
+        }
+        .ticket-id-badge {
+          animation: badgePulse 0.3s ease-out 1;
+          transform-origin: center;
         }
         .scope-nuclear-tag {
           animation: nuclearTagBlink 1.8s ease-in-out infinite;
@@ -1544,6 +1759,99 @@ export default function ScopeSledgehammer() {
             transform: translateY(0);
             transform: translateX(0);
           }
+        }
+
+        /* ── TASK 2A: ACTION BUTTONS ── */
+        .action-btn {
+          border: 1px solid rgba(0,255,255,0.5) !important;
+          color: #00ffff !important;
+          background: rgba(0,255,255,0.05) !important;
+          transition: all 0.2s ease !important;
+        }
+        .action-btn:hover {
+          background: rgba(0,255,255,0.15) !important;
+        }
+        .action-btn:active {
+          transform: scale(0.95) !important;
+        }
+
+        /* ── TASK 2A: BRUTALITY TABS ── */
+        .brutality-tab {
+          color: rgba(255,255,255,0.5);
+          transition: all 0.2s ease;
+        }
+        .brutality-tab.active {
+          color: #ffffff !important;
+        }
+
+        /* ── TASK 2C: SLEDGEHAMMER BTN ── */
+        .sledgehammer-btn:hover:not(:disabled) {
+          filter: brightness(1.2);
+        }
+        .sledgehammer-btn:active:not(:disabled) {
+          transform: scale(0.98) !important;
+        }
+        .sledgehammer-btn:active:not(:disabled) .scope-shimmer {
+          opacity: 0;
+        }
+
+        /* ── TASK 2C: INPUT PLACEHOLDER ── */
+        .scope-textarea::placeholder {
+          color: #444444 !important;
+        }
+        .scope-textarea {
+          color: #cccccc !important;
+        }
+
+        /* ── TASK 2C: STATS CARD LABELS ── */
+        .stats-label {
+          color: #888888 !important;
+          font-size: 11px !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.1em !important;
+        }
+        .stat-number {
+          font-size: 3rem !important;
+          color: #00ffff !important;
+          font-weight: 700 !important;
+        }
+
+        /* ── TASK 2D: TERMINAL MODE ── */
+        [data-theme="terminal"] .action-btn {
+          border: 1px solid rgba(0,255,0,0.5) !important;
+          color: #00ff00 !important;
+          background: rgba(0,255,0,0.05) !important;
+        }
+        [data-theme="terminal"] .action-btn:hover {
+          background: rgba(0,255,0,0.15) !important;
+        }
+        [data-theme="terminal"] .brutality-tab.active {
+          border-bottom-color: #00ff00 !important;
+        }
+        [data-theme="terminal"] .stat-number {
+          color: #00ff00 !important;
+        }
+        [data-theme="terminal"] .scope-textarea {
+          border-color: rgba(0,255,0,0.3) !important;
+        }
+        [data-theme="terminal"] .scope-textarea::placeholder {
+          color: #444444 !important;
+        }
+        [data-theme="terminal"] .glow-blob-1,
+        [data-theme="terminal"] .glow-blob-2 {
+          background: radial-gradient(circle, rgba(0,255,0,0.06) 0%, transparent 70%) !important;
+        }
+        [data-theme="terminal"] .corner-bracket {
+          border-color: #00ff00 !important;
+        }
+        [data-theme="terminal"] .sledgehammer-btn {
+          background: linear-gradient(135deg, #00ff00, #006600) !important;
+          color: #000000 !important;
+          text-shadow: none !important;
+        }
+        [data-theme="terminal"] .stat-number {
+          color: #00ff00 !important;
+          text-shadow: 0 0 12px rgba(0,255,0,0.1) !important;
         }
       `}</style>
 
@@ -1716,7 +2024,7 @@ export default function ScopeSledgehammer() {
           position: "relative",
           overflowX: "hidden",
         }}
-        className={`app-wrapper ${phase === "shaking" ? "scope-quaking" : ""}`}
+        className={`app-wrapper ${phase === "shaking" ? "scope-quaking" : ""} ${glitchActive ? "glitch-active" : ""}`}
       >
         {/* Faint Geometric Network Pattern */}
         <div
@@ -2242,20 +2550,20 @@ export default function ScopeSledgehammer() {
                   placeholder="We're building an AI-powered B2B SaaS with real-time collaboration, a mobile app, analytics, white-labeling, SSO, and a marketplace. Oh — and gamification..."
                   rows={6}
                   className={
-                    inputShake
+                    (inputShake
                       ? "scope-input-error"
                       : inputFocused
                       ? "scope-input-focused"
-                      : "scope-input-blur"
+                      : "scope-input-blur") + " scope-textarea"
                   }
                   style={{
                     width: "100%",
                     resize: "none",
                     fontFamily: "'JetBrains Mono', 'Courier New', monospace",
                     fontSize: 12.5,
-                    background: "rgba(0,0,0,0.65)",
-                    color: "#D4D4D8",
-                    border: "1px solid rgba(255,255,255,0.07)",
+                    background: "rgba(0,0,0,0.4)",
+                    color: "#cccccc",
+                    border: "1px solid rgba(0,255,255,0.2)",
                     boxShadow: "inset 0 2px 18px rgba(0,0,0,0.6)",
                     padding: "18px 20px",
                     outline: "none",
@@ -2367,7 +2675,7 @@ export default function ScopeSledgehammer() {
                     return (
                       <button
                         key={level}
-                        className="brutality-btn"
+                        className={`brutality-btn brutality-tab ${isActive ? "active" : ""}`}
                         onClick={() => handleBrutalityChange(level)}
                         style={{
                           flex: 1,
@@ -2418,6 +2726,20 @@ export default function ScopeSledgehammer() {
                       </button>
                     );
                   })}
+                </div>
+
+                <div
+                  key={`${brutalityLevel}-desc-idle`}
+                  className="brutality-desc-enter"
+                  style={{
+                    marginTop: 8,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    color: "#CCCCCC",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  {currentMeta.desc}
                 </div>
 
                 {/* Framework tag */}
@@ -2488,6 +2810,7 @@ export default function ScopeSledgehammer() {
                 ))}
 
                 <button
+                  className="sledgehammer-btn"
                   onClick={handleSledgehammer}
                   onMouseEnter={() => !isInputEmpty && setBtnHovered(true)}
                   onMouseLeave={() => { setBtnHovered(false); setBtnPressed(false); }}
@@ -2498,22 +2821,18 @@ export default function ScopeSledgehammer() {
                     position: "relative",
                     width: "100%",
                     overflow: "hidden",
-                    fontWeight: 800,
+                    fontWeight: 700,
                     fontSize: "clamp(1.1rem, 3.5vw, 1.5rem)",
                     letterSpacing: "0.16em",
                     textTransform: "uppercase",
-                    color: isInputEmpty ? "#71717A" : "#000",
+                    color: isInputEmpty ? "#71717A" : "#000000",
                     border: isInputEmpty ? "1px solid rgba(255,255,255,0.12)" : "none",
                     cursor: isInputEmpty ? "not-allowed" : "pointer",
                     outline: "none",
                     padding: "22px 40px",
                     background: isInputEmpty
                       ? "rgba(255,255,255,0.08)"
-                      : brutalityLevel === "gentle"
-                      ? "linear-gradient(135deg, var(--gentle-color) 0%, var(--gentle-color)cc 100%)"
-                      : brutalityLevel === "ruthless"
-                      ? "linear-gradient(135deg, var(--ruthless-color) 0%, var(--ruthless-color)cc 100%)"
-                      : "linear-gradient(135deg, var(--nuclear-color) 0%, var(--nuclear-color)cc 100%)",
+                      : "linear-gradient(135deg, #00ffff, #7700ff)",
                     boxShadow: btnShadow,
                     transform: btnTranslate,
                     transition: "box-shadow 0.15s, transform 0.1s, background 0.2s, color 0.2s",
@@ -2638,10 +2957,10 @@ export default function ScopeSledgehammer() {
 
               {/* Kill Counter Display */}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", marginBottom: 28, textAlign: "center" }}>
-                <span style={{ fontSize: "4rem", fontWeight: 500, color: currentMeta.color, textShadow: `0 0 18px ${currentMeta.color}44`, lineHeight: 1 }}>
+                <span style={{ fontSize: "5rem", fontWeight: 700, color: "#00ffff", textShadow: `0 0 18px rgba(0,255,255,0.4)`, lineHeight: 1 }}>
                   {killCount}
                 </span>
-                <span style={{ fontSize: 13, color: "#71717A", textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: "#888888", fontFamily: "'JetBrains Mono', monospace", textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 4 }}>
                   Features Destroyed
                 </span>
               </div>
@@ -2673,7 +2992,7 @@ export default function ScopeSledgehammer() {
                       >
                         {isPast ? "✓" : isCurrent ? "▶" : "○"}
                       </span>
-                      {msg}
+                      <span className={isCurrent ? "typewriter" : ""}>{msg}</span>
                       {isCurrent && (
                         <span className="scope-blink" style={{ color: "var(--system-accent)" }}>
                           _
@@ -2852,6 +3171,7 @@ export default function ScopeSledgehammer() {
                 </div>
                 <button
                   onClick={handleReset}
+                  className="action-btn"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -2860,22 +3180,8 @@ export default function ScopeSledgehammer() {
                     fontSize: 10,
                     letterSpacing: "0.2em",
                     textTransform: "uppercase",
-                    color: "#ffffff",
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255, 255, 255, 0.6)",
                     padding: "8px 14px",
                     cursor: "pointer",
-                    transition: "all 0.18s",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "var(--system-accent)";
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px var(--gentle-bg)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255, 255, 255, 0.6)";
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
                   }}
                 >
                   <RotateCcw size={11} />
@@ -3051,7 +3357,7 @@ export default function ScopeSledgehammer() {
                     return (
                       <button
                         key={level}
-                        className="brutality-btn"
+                        className={`brutality-btn brutality-tab ${isActive ? "active" : ""}`}
                         onClick={() => handleBrutalityChange(level)}
                         style={{
                           flex: 1,
@@ -3090,6 +3396,19 @@ export default function ScopeSledgehammer() {
                       </button>
                     );
                   })}
+                </div>
+                <div
+                  key={`${brutalityLevel}-desc-revealed`}
+                  className="brutality-desc-enter"
+                  style={{
+                    marginTop: 8,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    color: "#CCCCCC",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  {currentMeta.desc}
                 </div>
                 <div
                   key={brutalityLevel + "-revealed"}
@@ -3185,64 +3504,58 @@ export default function ScopeSledgehammer() {
                 </div>
               )}
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-end",
-                  justifyContent: "space-between",
-                  marginBottom: 28,
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.22em",
-                      textTransform: "uppercase",
-                      color: "#a1a1aa",
-                      marginBottom: 6,
-                    }}
-                  >
-                    {"// scope reduction complete — "}{brutalityLevel}{" mode"}
-                  </div>
-                  <h2
-                    style={{
-                      fontWeight: 800,
-                      fontSize: "2.25rem",
-                      color: "#ffffff",
-                      letterSpacing: "-0.02em",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                    }}
-                  >
-                    <span>
-                      {tickets.length} ticket{tickets.length !== 1 ? "s" : ""}. Non-negotiable.
-                    </span>
-                    {animatedReduction > 0 && (
-                      <span
-                        style={{
-                          fontFamily: "'JetBrains Mono', monospace",
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: "var(--system-accent)",
-                          padding: "4px 10px",
-                          background: "rgba(0, 0, 0, 0.6)",
-                          border: "1px solid var(--system-accent)",
-                          borderRadius: "4px",
-                          letterSpacing: "0.05em",
-                        }}
-                      >
-                        [Scope reduced by {animatedReduction}%]
-                      </span>
-                    )}
-                  </h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
+                <div
+                  style={{
+                    width: "100%",
+                    fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "#888888",
+                  }}
+                >
+                  {`// scope reduction complete — ${brutalityLevel.toUpperCase()} MODE`}
                 </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+
+                <h2
+                  style={{
+                    width: "100%",
+                    fontWeight: 700,
+                    fontSize: "3rem",
+                    color: "#ffffff",
+                    letterSpacing: "-0.02em",
+                    margin: 0,
+                    lineHeight: 1,
+                    display: "block",
+                  }}
+                >
+                  {tickets.length} ticket{tickets.length !== 1 ? "s" : ""}. Non-negotiable.
+                </h2>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  {animatedReduction > 0 && (
+                    <span
+                      style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#00FF88",
+                        padding: "6px 10px",
+                        border: "1px solid rgba(0, 255, 136, 0.7)",
+                        borderRadius: "999px",
+                        background: "rgba(0, 255, 136, 0.08)",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      [Scope reduced by {animatedReduction}%]
+                    </span>
+                  )}
+
                   {/* Deploy MVP Button */}
                   <button
                     onClick={handleDeployMVP}
+                    className="action-btn"
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -3251,28 +3564,17 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.2em",
                       textTransform: "uppercase",
-                      color: "var(--system-accent)",
-                      background: "none",
-                      border: "1px solid var(--system-accent)",
                       padding: "8px 12px",
                       cursor: "pointer",
-                      transition: "all 0.18s",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "var(--gentle-bg)";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "none";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--system-accent)";
                     }}
                   >
-                    Deploy MVP
+                    DEPLOY MVP
                   </button>
 
                   {/* Export CSV Button */}
                   <button
                     onClick={handleExportCSV}
+                    className="action-btn"
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -3281,64 +3583,17 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.2em",
                       textTransform: "uppercase",
-                      color: "rgba(255, 255, 255, 0.8)",
-                      background: "none",
-                      border: "1px solid rgba(255, 255, 255, 0.6)",
                       padding: "8px 12px",
                       cursor: "pointer",
-                      transition: "all 0.18s",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#ffffff";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255, 255, 255, 0.8)";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255, 255, 255, 0.6)";
                     }}
                   >
-                    Export .csv
-                  </button>
-
-                  {/* Share Tickets Button */}
-                  <button
-                    onClick={handleShareTickets}
-                    disabled={sharing}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.2em",
-                      textTransform: "uppercase",
-                      color: sharing ? "#71717A" : "rgba(255, 255, 255, 0.8)",
-                      background: "none",
-                      border: "1px solid rgba(255, 255, 255, 0.6)",
-                      padding: "8px 12px",
-                      cursor: sharing ? "not-allowed" : "pointer",
-                      transition: "all 0.18s",
-                      opacity: sharing ? 0.7 : 1,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!sharing) {
-                        (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = "#ffffff";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!sharing) {
-                        (e.currentTarget as HTMLButtonElement).style.color = "rgba(255, 255, 255, 0.8)";
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255, 255, 255, 0.6)";
-                      }
-                    }}
-                  >
-                    {sharing ? "Generating..." : "Share Tickets"}
+                    Export CSV
                   </button>
 
                   {/* Reset Button */}
                   <button
                     onClick={handleReset}
+                    className="action-btn"
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -3347,20 +3602,8 @@ export default function ScopeSledgehammer() {
                       fontSize: 10,
                       letterSpacing: "0.2em",
                       textTransform: "uppercase",
-                      color: "rgba(255, 255, 255, 0.8)",
-                      background: "none",
-                      border: "1px solid rgba(255, 255, 255, 0.6)",
                       padding: "8px 12px",
                       cursor: "pointer",
-                      transition: "all 0.18s",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#ffffff";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255, 255, 255, 0.8)";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255, 255, 255, 0.6)";
                     }}
                   >
                     <RotateCcw size={11} />
@@ -3371,7 +3614,6 @@ export default function ScopeSledgehammer() {
 
               {/* Ticket cards — fade when stale */}
               <div
-                ref={ticketsContainerRef}
                 className={ticketsStale ? "scope-stale-tickets" : ""}
                 style={{
                   display: "flex",

@@ -17,13 +17,13 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
   const [tearsSaved, setTearsSaved] = useState(0);
 
   const prevPhaseRef = useRef<string>("idle");
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if ((phase === "revealed" || phase === "compare_revealed") && (prevPhaseRef.current === "loading" || prevPhaseRef.current === "compare_loading") && ticketCount > 0) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
 
       // Calculate final target metrics based on input and tickets
@@ -32,27 +32,34 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
       const targetTime = Math.min(36, Math.max(4, Math.round(inputLength / 35)));
       const targetTears = Math.min(25000, Math.max(2500, Math.round(inputLength * 15)));
 
-      const steps = 30; // 30 frames animation
-      let step = 0;
+      const duration = 1500;
+      let startTime: number | null = null;
 
-      intervalRef.current = setInterval(() => {
-        step++;
-        setScopeScore(Math.round((targetScore * step) / steps));
-        setFeaturesVaporized(Math.round((targetFeatures * step) / steps));
-        setTimeSaved(Math.round((targetTime * step) / steps));
-        setTearsSaved(Math.round((targetTears * step) / steps));
-
-        if (step >= steps) {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
+      const animate = (timestamp: number) => {
+        if (startTime === null) {
+          startTime = timestamp;
         }
-      }, 30); // count up animation over ~900ms
+
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        setScopeScore(Math.round(targetScore * progress));
+        setFeaturesVaporized(Math.round(targetFeatures * progress));
+        setTimeSaved(Math.round(targetTime * progress));
+        setTearsSaved(Math.round(targetTears * progress));
+
+        if (progress < 1) {
+          animationFrameRef.current = requestAnimationFrame(animate);
+        } else {
+          animationFrameRef.current = null;
+        }
+      };
+
+      animationFrameRef.current = requestAnimationFrame(animate);
     } else if (phase === "idle") {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
       // Defer state reset to avoid synchronous setState inside useEffect
       setTimeout(() => {
@@ -68,8 +75,8 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
   // Clean up interval on unmount
   useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, []);
@@ -116,9 +123,9 @@ export default function NovusDashboard({ inputLength, ticketCount, phase, brutal
             <div className="sweep-border-card-inner" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <metric.icon size={12} style={{ stroke: metric.color }} />
-                <span style={{ fontSize: 11, textTransform: "uppercase", color: "#888888", letterSpacing: "0.1em", fontWeight: 500 }}>{metric.label}</span>
+                <span className="stats-label">{metric.label}</span>
               </div>
-              <div style={{ fontFamily: "var(--font-family-mono)", fontSize: "3rem", fontWeight: 700, color: metric.color, textShadow: `0 0 12px rgba(0, 255, 255, 0.1)`, lineHeight: 1.1 }}>
+              <div className="stat-number" style={{ fontFamily: "var(--font-family-mono)", textShadow: `0 0 12px rgba(0, 255, 255, 0.1)`, lineHeight: 1.1 }}>
                 {metric.value}
               </div>
             </div>
